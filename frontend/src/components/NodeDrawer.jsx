@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Database, GitMerge, BarChart3, ChevronRight, ArrowRight, Sparkles, Loader2 } from 'lucide-react'
+import { Database, GitMerge, BarChart3, LayoutDashboard, ChevronRight, ChevronLeft, ArrowRight, Sparkles, Loader2 } from 'lucide-react'
 import axios from 'axios'
+import { usePanelNav } from '../hooks/usePanelNav.js'
 
 const TYPE_CONFIG = {
   source: {
@@ -23,6 +24,13 @@ const TYPE_CONFIG = {
     chipClass: 'bg-emerald-50 border-emerald-200 text-emerald-700',
     tabClass: 'bg-emerald-600 hover:bg-emerald-700',
     headerStyle: { background: '#047857', color: 'white' },
+  },
+  dashboard: {
+    icon: LayoutDashboard, label: 'Dashboard',
+    accent: '#7C3AED', accentBg: '#F5F3FF',
+    chipClass: 'bg-violet-50 border-violet-200 text-violet-700',
+    tabClass: 'bg-violet-600 hover:bg-violet-700',
+    headerStyle: { background: '#6D28D9', color: 'white' },
   },
 }
 const FALLBACK = TYPE_CONFIG.source
@@ -49,12 +57,37 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
   const Icon = cfg.icon
   const isKpi = node?.type === 'kpi'
 
-  const [explanation, setExplanation] = useState(null)
-  const [explaining, setExplaining] = useState(false)
+  const [explanation, setExplanation]   = useState(null)
+  const [explaining, setExplaining]     = useState(false)
   const [explainError, setExplainError] = useState(null)
 
   useEffect(() => { setExplanation(null); setExplainError(null) }, [node?.id])
 
+  // ── Drawer-local navigation history (shared hook) ────────────────────────────
+  const nav = usePanelNav()
+
+  // When node changes externally (canvas click / URL change) → reset stack
+  useEffect(() => {
+    if (!node) { nav.reset(); return }
+    const current = nav.peek()
+    if (!current || current.id !== node.id) nav.reset(node)
+  }, [node?.id])
+
+  nav.onBackRef.current = () => {
+    const prev = nav.back()
+    if (prev !== undefined) onNavigate(prev)
+  }
+  nav.onForwardRef.current = () => {
+    const next = nav.forward()
+    if (next !== undefined) onNavigate(next)
+  }
+
+  function handleChipClick(n) {
+    nav.push(n)
+    onNavigate(n)
+  }
+
+  // ── Deps ─────────────────────────────────────────────────────────────────────
   const upstream = node
     ? edges.filter(e => e.target === node.id)
         .map(e => nodes.find(n => n.id === e.source)).filter(Boolean)
@@ -98,10 +131,12 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
   }
 
   return (
-    <aside className={`fixed top-0 right-0 h-full w-[340px] bg-white z-40 flex flex-col
-      border-l border-slate-200 shadow-2xl
-      transform transition-transform duration-300 ease-in-out
-      ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+    <aside
+      {...nav.panelProps}
+      className={`fixed top-0 right-0 h-full w-[340px] bg-white z-40 flex flex-col
+        border-l border-slate-200 shadow-2xl
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
     >
       {/* Languette */}
       {isOpen && (
@@ -115,6 +150,24 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
 
       {/* Header */}
       <div style={cfg.headerStyle} className="px-5 py-4 shrink-0">
+        {/* Back button */}
+        {(nav.canGoBack || nav.canGoForward) && (
+          <div className="flex items-center gap-3 mb-2">
+            {nav.canGoBack && (
+              <button onClick={() => nav.onBackRef.current()}
+                className="flex items-center gap-1 text-[11px] font-medium opacity-70 hover:opacity-100 transition-opacity">
+                <ChevronLeft size={13} /> Back
+              </button>
+            )}
+            {nav.canGoForward && (
+              <button onClick={() => nav.onForwardRef.current()}
+                className="flex items-center gap-1 text-[11px] font-medium opacity-70 hover:opacity-100 transition-opacity ml-auto">
+                Forward <ChevronRight size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             <Icon size={18} />
@@ -158,7 +211,7 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
             </p>
             {upstream.length > 0 ? (
               <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-slate-100">
-                {upstream.map(n => <NodeChip key={n.id} node={n} onClick={onNavigate} />)}
+                {upstream.map(n => <NodeChip key={n.id} node={n} onClick={handleChipClick} />)}
               </div>
             ) : (
               <p className="text-xs text-slate-400 italic pl-1">Nœud racine</p>
@@ -200,7 +253,7 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
             </p>
             {downstream.length > 0 ? (
               <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-slate-100">
-                {downstream.map(n => <NodeChip key={n.id} node={n} onClick={onNavigate} />)}
+                {downstream.map(n => <NodeChip key={n.id} node={n} onClick={handleChipClick} />)}
               </div>
             ) : (
               <p className="text-xs text-slate-400 italic pl-1">Nœud terminal</p>

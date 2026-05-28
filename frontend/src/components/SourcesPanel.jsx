@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, X, ChevronLeft, Database } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce.js'
+import { usePanelNav } from '../hooks/usePanelNav.js'
 import { TYPE_CFG } from '../lib/nodeTypes.js'
 import { getDownstream } from '../lib/graphUtils.js'
 import NodeItem from './NodeItem.jsx'
@@ -16,9 +17,8 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
   const debouncedSearch     = useDebounce(search)
   const debouncedDownSearch = useDebounce(downSearch)
 
-  // ── Navigation history stack ─────────────────────────────────────────────────
-  const navStack   = useRef([{ activeLetter: null, activeSource: null }])
-  const navPos     = useRef(0)
+  // ── Navigation history (shared hook) ────────────────────────────────────────
+  const nav = usePanelNav({ activeLetter: null, activeSource: null })
 
   function applyNavState({ activeLetter: al, activeSource: as }) {
     setActiveLetter(al)
@@ -27,106 +27,25 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
     if (!al && !as) setSearch('')
   }
 
-  // Call this for every intentional forward navigation (letter click, source click)
+  nav.onBackRef.current = () => {
+    const prev = nav.back()
+    if (prev !== undefined) applyNavState(prev)
+  }
+  nav.onForwardRef.current = () => {
+    const next = nav.forward()
+    if (next !== undefined) applyNavState(next)
+  }
+
   function navigateTo(newState) {
-    const current = navStack.current[navPos.current]
-    if (current.activeLetter === newState.activeLetter && current.activeSource?.id === newState.activeSource?.id) return
-    navStack.current = navStack.current.slice(0, navPos.current + 1)
-    navStack.current.push(newState)
-    navPos.current++
+    const current = nav.peek()
+    if (current?.activeLetter === newState.activeLetter && current?.activeSource?.id === newState.activeSource?.id) return
+    nav.push(newState)
     applyNavState(newState)
   }
 
-  function navBack() {
-    if (navPos.current <= 0) return
-    navPos.current--
-    applyNavState(navStack.current[navPos.current])
-  }
-
-  function navForward() {
-    if (navPos.current >= navStack.current.length - 1) return
-    navPos.current++
-    applyNavState(navStack.current[navPos.current])
-  }
-
-  // ── Swipe / keyboard interception ───────────────────────────────────────────
-  const keyListenerRef   = useRef(null)
-  const wheelListenerRef = useRef(null)
-  const wheelElRef       = useRef(null)
-  const swipeTimerRef    = useRef(null)
-  const swipeCooldownRef = useRef(false)  // one step per swipe gesture
-  const navBackRef       = useRef(null)
-  const navForwardRef    = useRef(null)
-
-  navBackRef.current    = navBack
-  navForwardRef.current = navForward
-
-  function handleMouseEnter(e) {
-    wheelElRef.current = e.currentTarget
-
-    wheelListenerRef.current = (we) => {
-      if (!wheelElRef.current?.contains(we.target)) return
-      if (Math.abs(we.deltaX) <= Math.abs(we.deltaY)) return
-      we.preventDefault()
-
-      // Gesture ended when no wheel events for 80ms → unlock for next swipe
-      clearTimeout(swipeTimerRef.current)
-      swipeTimerRef.current = setTimeout(() => {
-        swipeCooldownRef.current = false
-      }, 80)
-
-      // Already fired for this gesture — absorb remaining events
-      if (swipeCooldownRef.current) return
-
-      // Fire immediately on the first intentional horizontal event
-      if (we.deltaX < -10) {
-        swipeCooldownRef.current = true
-        navBackRef.current()
-      } else if (we.deltaX > 10) {
-        swipeCooldownRef.current = true
-        navForwardRef.current()
-      }
-    }
-    window.addEventListener('wheel', wheelListenerRef.current, { passive: false })
-
-    keyListenerRef.current = (ke) => {
-      const back    = (ke.altKey && ke.key === 'ArrowLeft')  || (ke.metaKey && ke.key === '[')
-      const forward = (ke.altKey && ke.key === 'ArrowRight') || (ke.metaKey && ke.key === ']')
-      if (back || forward) {
-        ke.preventDefault()
-        ke.stopPropagation()
-        if (back) navBackRef.current()
-        else navForwardRef.current()
-      }
-    }
-    window.addEventListener('keydown', keyListenerRef.current, true)
-  }
-
-  function handleMouseLeave() {
-    window.removeEventListener('wheel', wheelListenerRef.current)
-    wheelElRef.current       = null
-    wheelListenerRef.current = null
-    swipeCooldownRef.current = false
-    clearTimeout(swipeTimerRef.current)
-    if (keyListenerRef.current) {
-      window.removeEventListener('keydown', keyListenerRef.current, true)
-      keyListenerRef.current = null
-    }
-  }
-
-  function handleMouseDown(e) {
-    if (e.button === 3 || e.button === 4) {
-      e.preventDefault()
-      if (e.button === 3) navBackRef.current()
-      else navForwardRef.current()
-    }
-  }
-
   const panelProps = {
-    className:    'flex flex-col flex-1 min-h-0',
-    onMouseEnter: handleMouseEnter,
-    onMouseLeave: handleMouseLeave,
-    onMouseDown:  handleMouseDown,
+    className: 'flex flex-col flex-1 min-h-0',
+    ...nav.panelProps,
   }
 
   // ── Data ─────────────────────────────────────────────────────────────────────
@@ -178,7 +97,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
       <div {...panelProps}>
         <div className="px-3 pb-2 flex flex-col gap-2">
           <button
-            onClick={navBack}
+            onClick={() => nav.onBackRef.current()}
             className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
           >
             <ChevronLeft size={13} /> Back to sources
@@ -238,7 +157,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
         <div className="px-3 pb-2 flex flex-col gap-2">
           {!isSearching && (
             <button
-              onClick={navBack}
+              onClick={() => nav.onBackRef.current()}
               className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
             >
               <ChevronLeft size={13} /> All letters
