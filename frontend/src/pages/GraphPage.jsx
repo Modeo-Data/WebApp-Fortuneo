@@ -33,7 +33,7 @@ function CanvasPlaceholder({ nodeCount }) {
 }
 
 // ── Graph page ────────────────────────────────────────────────────────────────
-export default function GraphPage({ sessionId, navigate, goBack }) {
+export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   const [lineageData, setLineageData]   = useState(null)
   const [focusedNode, setFocusedNode]   = useState(null)
   const [selectedNode, setSelectedNode] = useState(null)
@@ -56,6 +56,20 @@ export default function GraphPage({ sessionId, navigate, goBack }) {
       .catch(() => setError('Could not load this graph. It may have expired.'))
       .finally(() => setRestoring(false))
   }, [sessionId])
+
+  // Restore focused node from URL — also clears it when nodeId is absent (browser back)
+  useEffect(() => {
+    if (!lineageData) return
+    if (!nodeId) { setFocusedNode(null); return }
+    const found = lineageData.nodes.find(n => n.id === nodeId)
+    if (found) setFocusedNode(found)
+  }, [lineageData, nodeId])
+
+  // Keep URL in sync with the focused node
+  useEffect(() => {
+    const base = `/graph/${sessionId}`
+    navigate(focusedNode ? `${base}?node=${focusedNode.id}` : base)
+  }, [focusedNode, sessionId])
 
   const subgraph = useMemo(() => {
     if (!focusedNode || !lineageData) return null

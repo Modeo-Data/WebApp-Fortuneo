@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react'
-import { Database, GitMerge, BarChart3, Table2, FileSpreadsheet } from 'lucide-react'
+import { Database, GitMerge, BarChart3, LayoutDashboard } from 'lucide-react'
 
 const TYPE_CONFIG = {
   source: {
@@ -28,6 +28,15 @@ const TYPE_CONFIG = {
     typeColor: '#059669',
     badgeText: '#065F46',
     badgeBg: '#D1FAE5',
+  },
+  dashboard: {
+    icon: LayoutDashboard,
+    label: 'Dashboard',
+    accent: '#7C3AED',
+    accentBg: '#F5F3FF',
+    typeColor: '#7C3AED',
+    badgeText: '#4C1D95',
+    badgeBg: '#EDE9FE',
   },
 }
 
@@ -70,7 +79,7 @@ export default function CustomNode({ data, selected }) {
         <Handle type="target" position={Position.Left}
           style={{ background: cfg.accent, width: 8, height: 8, border: '2px solid white', left: -1 }} />
       )}
-      {data.type !== 'kpi' && (
+      {data.type !== 'kpi' && data.type !== 'dashboard' && (
         <Handle type="source" position={Position.Right}
           style={{ background: cfg.accent, width: 8, height: 8, border: '2px solid white', right: -1 }} />
       )}

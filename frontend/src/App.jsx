@@ -3,25 +3,30 @@ import HomePage from './pages/HomePage.jsx'
 import GraphPage from './pages/GraphPage.jsx'
 
 // ── Simple History-API router ─────────────────────────────────────────────────
-function parsePath(pathname) {
+function parsePath(pathname, search = '') {
   const m = pathname.match(/^\/graph\/([^/]+)/)
-  if (m) return { page: 'graph', sessionId: m[1] }
+  if (m) {
+    const params = new URLSearchParams(search)
+    return { page: 'graph', sessionId: m[1], nodeId: params.get('node') || null }
+  }
   return { page: 'home' }
 }
 
 export default function App() {
-  const [location, setLocation] = useState(() => parsePath(window.location.pathname))
+  const [location, setLocation] = useState(() =>
+    parsePath(window.location.pathname, window.location.search))
 
   // Handle browser back / forward
   useEffect(() => {
-    const handler = () => setLocation(parsePath(window.location.pathname))
+    const handler = () => setLocation(parsePath(window.location.pathname, window.location.search))
     window.addEventListener('popstate', handler)
     return () => window.removeEventListener('popstate', handler)
   }, [])
 
   function navigate(path) {
+    if (path === window.location.pathname + window.location.search) return
     window.history.pushState(null, '', path)
-    setLocation(parsePath(path))
+    setLocation(parsePath(window.location.pathname, window.location.search))
   }
 
   function goBack() {
@@ -29,7 +34,7 @@ export default function App() {
   }
 
   if (location.page === 'graph') {
-    return <GraphPage sessionId={location.sessionId} navigate={navigate} goBack={goBack} />
+    return <GraphPage sessionId={location.sessionId} nodeId={location.nodeId} navigate={navigate} goBack={goBack} />
   }
 
   return <HomePage navigate={navigate} />

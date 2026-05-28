@@ -18,18 +18,20 @@ export function buildGraph(nodes, edges) {
   }
 
   const kpiIds      = new Set(nodes.filter(n => n.type === 'kpi').map(n => n.id))
-  const nonKpiNodes = nodes.filter(n => !kpiIds.has(n.id))
-  const nonKpiIds   = new Set(nonKpiNodes.map(n => n.id))
-  const internalEdges = validEdges.filter(e => nonKpiIds.has(e.source) && nonKpiIds.has(e.target))
+  const dashIds     = new Set(nodes.filter(n => n.type === 'dashboard').map(n => n.id))
+  const terminalIds = new Set([...kpiIds, ...dashIds])
+  const coreNodes   = nodes.filter(n => !terminalIds.has(n.id))
+  const coreIds     = new Set(coreNodes.map(n => n.id))
+  const internalEdges = validEdges.filter(e => coreIds.has(e.source) && coreIds.has(e.target))
 
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
   g.setGraph({ rankdir: 'LR', nodesep: 55, ranksep: 110, marginx: 40, marginy: 40 })
-  nonKpiNodes.forEach(n => g.setNode(n.id, { width: NODE_W, height: NODE_H }))
+  coreNodes.forEach(n => g.setNode(n.id, { width: NODE_W, height: NODE_H }))
   internalEdges.forEach(e => g.setEdge(e.source, e.target))
   dagre.layout(g)
 
-  const rfNodes = nonKpiNodes.map(n => {
+  const rfNodes = coreNodes.map(n => {
     const pos = g.node(n.id)
     return {
       id: n.id, type: 'custom',
@@ -42,23 +44,28 @@ export function buildGraph(nodes, edges) {
     }
   })
 
-  const maxX     = nonKpiNodes.reduce((m, n) => Math.max(m, g.node(n.id).x), 0)
-  const kpiX     = maxX + NODE_W / 2 + 130
-  const kpiList  = nodes.filter(n => kpiIds.has(n.id))
-  const kpiTotalH = (kpiList.length - 1) * 110
-  const kpiStartY = Math.max((window.innerHeight - 110 - kpiTotalH) / 2, 40)
+  const maxX  = coreNodes.length ? coreNodes.reduce((m, n) => Math.max(m, g.node(n.id).x), 0) : 0
+  const kpiX  = maxX + NODE_W / 2 + 130
+  const dashX = kpiX + NODE_W + 130
 
-  kpiList.forEach((n, i) => {
-    rfNodes.push({
-      id: n.id, type: 'custom',
-      position: { x: kpiX, y: kpiStartY + i * 110 },
-      data: {
-        label: n.label, type: n.type, sheet: n.sheet ?? null,
-        upstreamCount:   parents[n.id].length,
-        downstreamCount: children[n.id].length,
-      },
+  function placeColumn(list, x) {
+    const totalH = (list.length - 1) * 110
+    const startY = Math.max((window.innerHeight - 110 - totalH) / 2, 40)
+    list.forEach((n, i) => {
+      rfNodes.push({
+        id: n.id, type: 'custom',
+        position: { x, y: startY + i * 110 },
+        data: {
+          label: n.label, type: n.type, sheet: n.sheet ?? null,
+          upstreamCount:   parents[n.id].length,
+          downstreamCount: children[n.id].length,
+        },
+      })
     })
-  })
+  }
+
+  placeColumn(nodes.filter(n => kpiIds.has(n.id)), kpiX)
+  placeColumn(nodes.filter(n => dashIds.has(n.id)), dashX)
 
   const rfEdges = validEdges.map((e, i) => ({
     id: `e-${i}`, source: e.source, target: e.target, type: 'smoothstep',

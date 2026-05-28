@@ -29,6 +29,8 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
 
   // Call this for every intentional forward navigation (letter click, source click)
   function navigateTo(newState) {
+    const current = navStack.current[navPos.current]
+    if (current.activeLetter === newState.activeLetter && current.activeSource?.id === newState.activeSource?.id) return
     navStack.current = navStack.current.slice(0, navPos.current + 1)
     navStack.current.push(newState)
     navPos.current++
@@ -165,7 +167,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
   }, [downstreamNodes, debouncedDownSearch])
 
   const downByType = useMemo(() => {
-    const groups = { transformation: [], kpi: [] }
+    const groups = { transformation: [], kpi: [], dashboard: [] }
     filteredDownstream.forEach(n => { if (groups[n.type]) groups[n.type].push(n) })
     return groups
   }, [filteredDownstream])
@@ -204,7 +206,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
           {filteredDownstream.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-3">No downstream nodes match</p>
           ) : (
-            ['transformation', 'kpi'].map(type => {
+            ['transformation', 'kpi', 'dashboard'].map(type => {
               const group = downByType[type]
               if (!group.length) return null
               const cfg = TYPE_CFG[type]

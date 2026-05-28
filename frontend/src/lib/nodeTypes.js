@@ -1,4 +1,4 @@
-import { Database, GitMerge, BarChart3 } from 'lucide-react'
+import { Database, GitMerge, BarChart3, LayoutDashboard } from 'lucide-react'
 
 export const TYPE_CFG = {
   source: {
@@ -16,6 +16,11 @@ export const TYPE_CFG = {
     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', badgeBg: '#D1FAE5', badgeText: '#065F46',
     activeBg: '#D1FAE5',
   },
+  dashboard: {
+    label: 'Dashboard', icon: LayoutDashboard,
+    color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', badgeBg: '#EDE9FE', badgeText: '#4C1D95',
+    activeBg: '#EDE9FE',
+  },
 }
 
-export const ALL_TYPES = ['source', 'transformation', 'kpi']
+export const ALL_TYPES = ['source', 'transformation', 'kpi', 'dashboard']

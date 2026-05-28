@@ -27,6 +27,12 @@ _SHEET_ALIASES = {
     'kpi':             'kpi',
     'indicateurs':     'kpi',
     'outputs':         'kpi',
+    'dashboards':      'dashboard',
+    'dashboard':       'dashboard',
+    'tableaux de bord':'dashboard',
+    'tableau de bord': 'dashboard',
+    'rapports':        'dashboard',
+    'reports':         'dashboard',
 }
 
 
