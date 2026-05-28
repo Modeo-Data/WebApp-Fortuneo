@@ -29,17 +29,38 @@ _EXCEL_FUNCTIONS = {
 
 
 def _slug(text: str) -> str:
+    """Convert a string to a lowercase alphanumeric slug (underscores as separators)."""
     return re.sub(r'[^a-z0-9]+', '_', str(text).strip().lower()).strip('_')
 
 
-def _node_id(sheet: str, col: str, headers: dict) -> str:
+def _node_id(sheet: str, col: str, headers: dict[str, str]) -> str:
+    """Build a unique node identifier from sheet name and column letter.
+
+    Args:
+        sheet: Sheet name.
+        col: Column letter (e.g. 'A', 'BC').
+        headers: Mapping of column letter → header label for this sheet.
+
+    Returns:
+        A slug of the form ``<sheet_slug>__<label_slug>`` or ``<sheet_slug>__<col_lower>``.
+    """
     label = headers.get(col)
     if label:
         return f"{_slug(sheet)}__{_slug(label)}"
     return f"{_slug(sheet)}__{col.lower()}"
 
 
-def _node_label(sheet: str, col: str, headers: dict) -> str:
+def _node_label(sheet: str, col: str, headers: dict[str, str]) -> str:
+    """Return the human-readable label for a node.
+
+    Args:
+        sheet: Sheet name.
+        col: Column letter.
+        headers: Mapping of column letter → header label for this sheet.
+
+    Returns:
+        The header value if available, otherwise ``"<sheet> <col>"``.
+    """
     label = headers.get(col)
     if label:
         return str(label)
@@ -77,7 +98,28 @@ def _extract_refs(formula: str, current_sheet: str) -> list[tuple[str, str]]:
     return list(refs)
 
 
-def parse_formula(file) -> dict:
+def parse_formula(file: object) -> dict:
+    """Parse an Excel workbook by analysing cell formulas and inferring the dependency graph.
+
+    Reads every sheet, treats row 1 as column headers, then walks all formula cells to
+    extract cross-column references.  Nodes are classified as:
+
+    - ``source``         — column with no formula, referenced by others.
+    - ``transformation`` — column with a formula that is itself referenced by others.
+    - ``kpi``            — column with a formula that is never referenced (terminal node).
+
+    Args:
+        file: Django uploaded file object (``InMemoryUploadedFile`` or similar), opened in
+              binary mode.  Must be a valid ``.xlsx`` or ``.xls`` workbook.
+
+    Returns:
+        dict with keys:
+
+        - ``nodes`` (list[dict]): Each node has ``id``, ``label``, ``type``, ``sheet``.
+        - ``edges`` (list[dict]): Each edge has ``source`` and ``target`` node IDs.
+        - ``_error`` (str, optional): Present when the workbook cannot be opened.
+        - ``_warning`` (str, optional): Present when no formulas are detected.
+    """
     try:
         wb = openpyxl.load_workbook(file, data_only=False)
     except Exception as e:

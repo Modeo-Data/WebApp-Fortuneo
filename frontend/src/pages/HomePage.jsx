@@ -79,6 +79,7 @@ export default function HomePage({ navigate }) {
       navigate(`/graph/${data.session_id}`)
     } catch (err) {
       setUploadError(err.response?.data?.error ?? 'Upload failed.')
+    } finally {
       setUploading(false)
     }
   }

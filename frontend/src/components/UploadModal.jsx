@@ -8,9 +8,9 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
   const [mode, setMode] = useState('formula')
   const [graphName, setGraphName] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [isJson, setIsJson] = useState(false)
   const inputRef = useRef(null)
 
-  // Close on Escape
   useEffect(() => {
     const h = e => { if (e.key === 'Escape' && !loading) onClose() }
     window.addEventListener('keydown', h)
@@ -18,9 +18,14 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
   }, [loading, onClose])
 
   function handleFiles(files) {
-    const valid = [...files].filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))
+    const arr = [...files]
+    const valid = arr.filter(f =>
+      f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.json')
+    )
     if (!valid.length) return
-    onUpload(valid, mode, graphName || null)
+    const json = valid.every(f => f.name.endsWith('.json'))
+    setIsJson(json)
+    onUpload(valid, json ? 'json' : mode, graphName || null)
   }
 
   return (
@@ -48,11 +53,13 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Mode toggle */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Parse mode</span>
-            <ModeToggle mode={mode} onChange={setMode} />
-          </div>
+          {/* Mode toggle — hidden for JSON imports */}
+          {!isJson && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Parse mode</span>
+              <ModeToggle mode={mode} onChange={setMode} />
+            </div>
+          )}
 
           {/* Name input */}
           <div>
@@ -92,16 +99,18 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
                 <p className="text-sm font-semibold text-slate-600">
                   Drop files here or <span style={{ color: ACCENT }}>browse</span>
                 </p>
-                <p className="text-xs text-slate-400 mt-1">.xlsx / .xls — multiple files supported</p>
+                <p className="text-xs text-slate-400 mt-1">.xlsx / .xls / .json — multiple files supported</p>
               </>
             )}
-            <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple className="hidden"
+            <input ref={inputRef} type="file" accept=".xlsx,.xls,.json" multiple className="hidden"
               onChange={e => handleFiles(e.target.files)} />
           </div>
 
           {/* Mode hint */}
           <p className="text-xs text-slate-400 leading-relaxed">
-            {mode === 'formula'
+            {isJson
+              ? <><strong className="text-slate-600">JSON mode</strong> — re-imports a graph previously exported from Modeo Lineage.</>
+              : mode === 'formula'
               ? <><strong className="text-slate-600">Formula mode</strong> — dependencies auto-detected from cell formulas.</>
               : <><strong className="text-slate-600">Structured mode</strong> — expects sheets: <code className="bg-slate-100 px-1 rounded">Sources</code>, <code className="bg-slate-100 px-1 rounded">Transformations</code>, <code className="bg-slate-100 px-1 rounded">KPIs</code>.</>
             }

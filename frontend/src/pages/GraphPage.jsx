@@ -5,7 +5,7 @@ import NodeDrawer from '../components/NodeDrawer.jsx'
 import NodeSelector from '../components/NodeSelector.jsx'
 import UploadModal from '../components/UploadModal.jsx'
 import { getSubgraph } from '../lib/graphUtils.js'
-import { Upload, ArrowLeft, BarChart3, GitMerge, Database } from 'lucide-react'
+import { Upload, ArrowLeft, BarChart3, GitMerge, Database, Download } from 'lucide-react'
 
 const ACCENT = '#FF7327'
 
@@ -72,9 +72,11 @@ export default function GraphPage({ sessionId, navigate, goBack }) {
       const { data } = await axios.post('/api/upload/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
+      setShowModal(false)
       navigate(`/graph/${data.session_id}`)
     } catch (err) {
       setUploadError(err.response?.data?.error ?? 'Upload failed.')
+    } finally {
       setUploading(false)
     }
   }
@@ -118,8 +120,32 @@ export default function GraphPage({ sessionId, navigate, goBack }) {
           </div>
         )}
 
+        {lineageData && (
+          <button
+            onClick={() => {
+              const payload = {
+                session_id: sessionId,
+                exported_at: new Date().toISOString(),
+                mode: lineageData.mode,
+                nodes: lineageData.nodes,
+                edges: lineageData.edges,
+              }
+              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `lineage-${sessionId}.json`
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={13} /> Export JSON
+          </button>
+        )}
+
         <button onClick={() => { setUploadError(null); setShowModal(true) }}
-          className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm transition-colors"
+          className={`${lineageData ? '' : 'ml-auto'} inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm transition-colors`}
           style={{ background: ACCENT }}
           onMouseEnter={e => e.currentTarget.style.background = '#E5601A'}
           onMouseLeave={e => e.currentTarget.style.background = ACCENT}>

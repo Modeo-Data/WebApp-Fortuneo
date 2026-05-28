@@ -31,11 +31,19 @@ _SHEET_ALIASES = {
 
 
 def _normalize(name: str) -> str:
+    """Strip whitespace and lowercase a sheet name for alias lookup."""
     return name.strip().lower()
 
 
-def _rows_as_dicts(ws) -> list[dict]:
-    """Convertit une sheet en liste de dicts en utilisant la ligne 1 comme headers."""
+def _rows_as_dicts(ws: object) -> list[dict]:
+    """Convert a worksheet to a list of row dicts keyed by lowercased column headers.
+
+    Args:
+        ws: An ``openpyxl`` ``Worksheet`` object.  Row 1 is treated as the header row.
+
+    Returns:
+        List of dicts — one per non-empty data row — with lowercased header strings as keys.
+    """
     headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[1]]
     result = []
     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -46,14 +54,46 @@ def _rows_as_dicts(ws) -> list[dict]:
     return result
 
 
-def _get(d: dict, *keys, default='') -> str:
+def _get(d: dict, *keys: str, default: str = '') -> str:
+    """Return the first non-None value found for any of the given keys in ``d``.
+
+    Args:
+        d: Row dict from :func:`_rows_as_dicts`.
+        *keys: Candidate column names to try in order.
+        default: Value to return when none of the keys are present or all are ``None``.
+
+    Returns:
+        Stripped string value of the first matching key, or ``default``.
+    """
     for k in keys:
         if k in d and d[k] is not None:
             return str(d[k]).strip()
     return default
 
 
-def parse_structured(file) -> dict:
+def parse_structured(file: object) -> dict:
+    """Parse an Excel workbook that follows the explicit sheet-based schema.
+
+    Expected sheet names (case-insensitive, accent-tolerant):
+
+    - **Sources / Données / Data / Inputs** — columns: ``id``, ``label``, ``description``
+    - **Transformations / Transfo / Calculs** — columns: ``id``, ``label``, ``depends_on``, ``formula``
+    - **KPIs / Indicateurs / Outputs** — columns: ``id``, ``label``, ``depends_on``, ``description``
+
+    The ``depends_on`` column is a comma-separated list of node IDs that the current node
+    depends on.  Unknown sheets are silently ignored.
+
+    Args:
+        file: Django uploaded file object, opened in binary mode.
+
+    Returns:
+        dict with keys:
+
+        - ``nodes`` (list[dict]): Each node has ``id``, ``label``, ``type``.
+        - ``edges`` (list[dict]): Each edge has ``source`` and ``target`` node IDs.
+        - ``_error`` (str, optional): Present when the workbook cannot be opened.
+        - ``_warning`` (str, optional): Present when no recognised sheets are found.
+    """
     try:
         wb = openpyxl.load_workbook(file, data_only=True)
     except Exception as e:

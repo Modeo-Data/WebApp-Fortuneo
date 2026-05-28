@@ -104,12 +104,14 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
       ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
     >
       {/* Languette */}
-      <button onClick={onClose} aria-label="Fermer"
-        className={`absolute -left-7 top-1/2 -translate-y-1/2 w-7 h-16 rounded-l-xl
-          flex items-center justify-center text-white shadow-lg
-          transition-all duration-150 hover:-left-8 hover:w-8 ${cfg.tabClass}`}>
-        <ChevronRight size={16} strokeWidth={2.5} />
-      </button>
+      {isOpen && (
+        <button onClick={onClose} aria-label="Fermer"
+          className={`absolute -left-7 top-1/2 -translate-y-1/2 w-7 h-16 rounded-l-xl
+            flex items-center justify-center text-white shadow-lg
+            transition-all duration-150 hover:-left-8 hover:w-8 ${cfg.tabClass}`}>
+          <ChevronRight size={16} strokeWidth={2.5} />
+        </button>
+      )}
 
       {/* Header */}
       <div style={cfg.headerStyle} className="px-5 py-4 shrink-0">
