@@ -139,6 +139,15 @@ body {
   background-color: #F1F5F9;
 }
 
+/* Smooth barrier-push animation — exclude dropdown node (RF uses transform for positioning) */
+.react-flow__node:not(.node-no-transition) {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Dragged node moves instantly — no lag */
+.react-flow__node.dragging {
+  transition: none;
+}
+
 /* Smooth edge animations */
 .react-flow__edge-path {
   stroke-width: 2;

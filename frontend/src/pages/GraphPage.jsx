@@ -4,11 +4,12 @@ import LineageGraph from '../components/LineageGraph.jsx'
 import NodeDrawer from '../components/NodeDrawer.jsx'
 import NodeSelector from '../components/NodeSelector.jsx'
 import UploadModal from '../components/UploadModal.jsx'
-import { getSubgraph } from '../lib/graphUtils.js'
+import { getSubgraph, simplifySubgraph } from '../lib/graphUtils.js'
 import { Upload, BarChart3, GitMerge, Database, Download } from 'lucide-react'
 import DarkModeToggle from '../components/DarkModeToggle.jsx'
 
 const ACCENT = '#88c648'
+
 
 // ── Canvas placeholder ────────────────────────────────────────────────────────
 function CanvasPlaceholder({ nodeCount }) {
@@ -38,16 +39,18 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   const [lineageData, setLineageData]   = useState(null)
   const [focusedNode, setFocusedNode]   = useState(null)
   const [selectedNode, setSelectedNode] = useState(null)
+  const [drawerNode, setDrawerNode]     = useState(null)
   const [restoring, setRestoring]       = useState(true)
   const [error, setError]               = useState(null)
   const [warnings, setWarnings]         = useState([])
+  const [viewMode, setViewMode]         = useState('simplified')
   const [showModal, setShowModal]       = useState(false)
   const [uploading, setUploading]       = useState(false)
   const [uploadError, setUploadError]   = useState(null)
 
   useEffect(() => {
     setRestoring(true); setLineageData(null); setFocusedNode(null)
-    setSelectedNode(null); setError(null); setWarnings([])
+    setSelectedNode(null); setDrawerNode(null); setError(null); setWarnings([])
 
     axios.get('/api/session/', { headers: { 'X-Session-ID': sessionId } })
       .then(({ data }) => {
@@ -63,7 +66,7 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
     if (!lineageData) return
     if (!nodeId) { setFocusedNode(null); return }
     const found = lineageData.nodes.find(n => n.id === nodeId)
-    if (found) setFocusedNode(found)
+    if (found) { setFocusedNode(found); setViewMode('simplified') }
   }, [lineageData, nodeId])
 
   // Keep URL in sync with the focused node
@@ -72,10 +75,18 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
     navigate(focusedNode ? `${base}?node=${focusedNode.id}` : base)
   }, [focusedNode, sessionId])
 
-  const subgraph = useMemo(() => {
+  const fullSubgraph = useMemo(() => {
     if (!focusedNode || !lineageData) return null
     return getSubgraph(focusedNode.id, lineageData.nodes, lineageData.edges)
   }, [focusedNode, lineageData])
+
+  const showToggle = focusedNode && focusedNode.type !== 'transformation'
+
+  const subgraph = useMemo(() => {
+    if (!fullSubgraph) return null
+    if (!showToggle || viewMode === 'complete') return fullSubgraph
+    return simplifySubgraph(fullSubgraph)
+  }, [fullSubgraph, viewMode, showToggle])
 
   async function handleUpload(files, mode, name) {
     setUploading(true); setUploadError(null)
@@ -204,18 +215,37 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
               nodes={allNodes}
               edges={allEdges}
               selectedNodeId={focusedNode?.id}
-              onSelect={node => { setFocusedNode(node); setSelectedNode(null) }}
+              onSelect={node => { setFocusedNode(node); setSelectedNode(null); setDrawerNode(null); setViewMode('simplified') }}
             />
 
             <div className="flex-1 relative overflow-hidden">
               {!subgraph && <CanvasPlaceholder nodeCount={allNodes.length} />}
 
+              {showToggle && subgraph && (
+                <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm"
+                  style={{ background: 'var(--tab-active-bg)' }}>
+                  {['simplified', 'complete'].map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      className="px-3 py-1 rounded-md text-[11px] font-semibold transition-all capitalize"
+                      style={viewMode === mode
+                        ? { background: ACCENT, color: 'white' }
+                        : { color: '#94A3B8' }}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {subgraph && subgraph.nodes.length > 0 && (
                 <LineageGraph
                   nodes={subgraph.nodes}
                   edges={subgraph.edges}
-                  onNodeClick={setSelectedNode}
-                  onPaneClick={() => setSelectedNode(null)}
+                  onNodeClick={node => { setSelectedNode(node); setDrawerNode(node) }}
+                  onDropdownItemClick={item => { setSelectedNode(null); setDrawerNode(item) }}
+                  onPaneClick={() => { setSelectedNode(null); setDrawerNode(null) }}
                   selectedNodeId={selectedNode?.id}
                 />
               )}
@@ -231,12 +261,12 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
       </div>
 
       <NodeDrawer
-        node={selectedNode}
+        node={drawerNode}
         nodes={allNodes}
         edges={allEdges}
-        onClose={() => setSelectedNode(null)}
+        onClose={() => setDrawerNode(null)}
         onNavigate={node => {
-          setSelectedNode(node)
+          setDrawerNode(node)
           const found = allNodes.find(n => n.id === node.id)
           if (found) setFocusedNode(found)
         }}

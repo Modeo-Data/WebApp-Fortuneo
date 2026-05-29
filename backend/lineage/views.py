@@ -12,6 +12,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 
 from .parsers import parse_excel, merge_graphs
+from .models import SavedGraph
 
 
 @dataclass
@@ -377,35 +378,58 @@ class SessionView(APIView):
     """GET /api/session/ — retrieve the graph data for the current session."""
 
     def get(self, request: object) -> object:
-        """Return the full graph payload for the session identified by ``X-Session-ID``.
-
-        Args:
-            request: DRF ``Request``.  Must include the ``X-Session-ID`` header.
-
-        Returns:
-            ``200 OK`` with the session dict, or ``404 Not Found`` if the session
-            is absent or has expired.
-        """
         session_id = _get_session_id(request)
         payload = _load_session(session_id)
         if payload is None:
-            return Response({'detail': 'Aucune session trouvée.'}, status=status.HTTP_404_NOT_FOUND)
+            # Fall back to SQLite for saved graphs whose Redis entry expired
+            try:
+                saved = SavedGraph.objects.get(session_id=session_id)
+                payload = saved.graph_data
+                _save_session(session_id, payload)  # repopulate Redis
+            except SavedGraph.DoesNotExist:
+                return Response({'detail': 'Aucune session trouvée.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(payload)
 
 
 class GraphListView(APIView):
-    """GET /api/graphs/ — returns the index of all saved sessions."""
+    """GET /api/graphs/ — returns saved (SQLite) and cached (Redis) graph lists."""
 
     def get(self, request: object) -> object:
-        """Return the list of all registered session summaries, newest first.
+        saved_qs = SavedGraph.objects.values('session_id', 'name', 'created_at', 'node_count', 'edge_count', 'mode')
+        saved = [
+            {**s, 'timestamp': s.pop('created_at').isoformat()}
+            for s in (dict(r) for r in saved_qs)
+        ]
+        saved_ids = {s['session_id'] for s in saved}
+        cached = [e for e in _load_sessions_index() if e['session_id'] not in saved_ids]
+        return Response({'saved': saved, 'cached': cached})
 
-        Args:
-            request: DRF ``Request`` (no special headers required).
 
-        Returns:
-            ``200 OK`` with a JSON array of session metadata dicts.
-        """
-        return Response(_load_sessions_index())
+class SaveView(APIView):
+    """POST /api/graphs/<session_id>/save/ — persist a graph to SQLite.
+    DELETE /api/graphs/<session_id>/save/ — remove it."""
+
+    def post(self, request: object, session_id: str) -> object:
+        payload = _load_session(session_id)
+        if payload is None:
+            return Response({'error': 'Session introuvable ou expirée.'}, status=status.HTTP_404_NOT_FOUND)
+        index = _load_sessions_index()
+        meta = next((e for e in index if e['session_id'] == session_id), {})
+        SavedGraph.objects.update_or_create(
+            session_id=session_id,
+            defaults={
+                'name':       meta.get('name', session_id),
+                'node_count': meta.get('node_count', len(payload.get('nodes', []))),
+                'edge_count': meta.get('edge_count', len(payload.get('edges', []))),
+                'mode':       meta.get('mode', payload.get('mode', 'formula')),
+                'graph_data': payload,
+            },
+        )
+        return Response({'status': 'saved'})
+
+    def delete(self, request: object, session_id: str) -> object:
+        SavedGraph.objects.filter(session_id=session_id).delete()
+        return Response({'status': 'removed'})
 
 
 class ExplainView(APIView):
