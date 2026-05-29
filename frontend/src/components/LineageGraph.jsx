@@ -63,7 +63,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onPaneClick, selectedNodeId }) 
       if (inPath) return {
         ...e,
         type: 'belt',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#FF7327' },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#88c648' },
         style: {},
       }
 
@@ -138,7 +138,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onPaneClick, selectedNodeId }) 
         <Controls showInteractive={false} className="!shadow-md !rounded-lg !border !border-slate-200" />
         <MiniMap
           nodeColor={n => {
-            if (n.type === 'operation') return '#FF7327'
+            if (n.type === 'operation') return '#88c648'
             return { source: '#3B82F6', transformation: '#F59E0B', kpi: '#10B981' }[n.data?.type] ?? '#E2E8F0'
           }}
           nodeStrokeWidth={0}
@@ -148,8 +148,8 @@ function InnerGraph({ nodes, edges, onNodeClick, onPaneClick, selectedNodeId }) 
 
         <div style={{
           position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-          fontSize: 11, color: '#FF7327', pointerEvents: 'none',
-          background: '#FFF4EE', border: '1px solid #FFD4B8',
+          fontSize: 11, color: '#88c648', pointerEvents: 'none',
+          background: 'var(--accent-pill-bg)', border: '1px solid var(--accent-pill-border)',
           padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
           boxShadow: '0 1px 4px rgba(255,115,39,0.12)',
           fontWeight: 500,

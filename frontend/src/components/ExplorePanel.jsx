@@ -4,7 +4,7 @@ import { useDebounce } from '../hooks/useDebounce.js'
 import { TYPE_CFG, ALL_TYPES } from '../lib/nodeTypes.js'
 import NodeItem from './NodeItem.jsx'
 
-const ACCENT = '#FF7327'
+const ACCENT = '#88c648'
 
 export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
   const [search, setSearch] = useState('')
@@ -58,9 +58,9 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
               <button key={type} onClick={() => toggleType(type)}
                 className="flex-1 text-center py-1 rounded-md text-[10px] font-semibold transition-all"
                 style={{
-                  background: active ? cfg.bg : '#F8FAFC',
+                  background: active ? cfg.bg : 'var(--surface-inactive)',
                   color: active ? cfg.color : '#94A3B8',
-                  border: `1px solid ${active ? cfg.border : '#F1F5F9'}`,
+                  border: `1px solid ${active ? cfg.border : 'transparent'}`,
                 }}>
                 {cfg.label}<span className="ml-0.5 opacity-60">·{typeCounts[type]}</span>
               </button>

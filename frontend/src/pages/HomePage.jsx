@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import UploadModal from '../components/UploadModal.jsx'
 import { BarChart3, Clock, ChevronRight, Plus, Database } from 'lucide-react'
+import DarkModeToggle from '../components/DarkModeToggle.jsx'
 
-const ACCENT = '#FF7327'
+const ACCENT = '#88c648'
 
 function fmt(iso) {
   try {
@@ -15,8 +16,8 @@ function fmt(iso) {
 }
 
 const MODE_COLOR = {
-  formula:    { bg: '#EFF6FF', text: '#2563EB' },
-  structured: { bg: '#F0FDF4', text: '#16A34A' },
+  formula:    { bg: 'var(--mode-formula-bg)',    text: 'var(--mode-formula-text)' },
+  structured: { bg: 'var(--mode-structured-bg)', text: 'var(--mode-structured-text)' },
 }
 
 function GraphCard({ graph, onOpen }) {
@@ -28,7 +29,7 @@ function GraphCard({ graph, onOpen }) {
         hover:border-orange-300 hover:shadow-md transition-all group flex items-center gap-4"
     >
       <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
-        style={{ background: '#FFF4EE' }}>
+        style={{ background: 'var(--accent-pill-bg)' }}>
         <BarChart3 size={17} style={{ color: ACCENT }} />
       </div>
 
@@ -96,19 +97,20 @@ export default function HomePage({ navigate }) {
               width: 30, height: 30, borderRadius: 8, background: ACCENT,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 800, fontSize: 16, color: 'white',
-            }}>M</div>
+            }}>N</div>
             <div className="text-left">
-              <p className="text-sm font-bold text-slate-900 leading-none">Modeo Lineage</p>
-              <p className="text-[10px] text-slate-400 leading-none mt-0.5">KPI data lineage</p>
+              <p className="text-sm font-bold text-slate-900 leading-none">Nexus</p>
+              <p className="text-[9px] font-semibold tracking-widest text-slate-400 leading-none mt-0.5 uppercase">Explorer</p>
             </div>
           </button>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <DarkModeToggle />
             <button
               onClick={() => { setUploadError(null); setShowModal(true) }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-sm transition-colors"
               style={{ background: ACCENT }}
-              onMouseEnter={e => e.currentTarget.style.background = '#E5601A'}
+              onMouseEnter={e => e.currentTarget.style.background = '#6aaf35'}
               onMouseLeave={e => e.currentTarget.style.background = ACCENT}
             >
               <Plus size={15} strokeWidth={2.5} />
@@ -158,7 +160,7 @@ export default function HomePage({ navigate }) {
 
       {/* Footer */}
       <footer className="text-center py-4 text-[11px] text-slate-300">
-        <span style={{ color: ACCENT, fontWeight: 700 }}>modeo.ai</span> — KPI lineage visualization
+        <span style={{ color: ACCENT, fontWeight: 700 }}>nexus-explorer</span> — Data lineage visualization
       </footer>
 
       {/* Upload modal */}

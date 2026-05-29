@@ -26,7 +26,7 @@ export default function UploadButton({ onUpload, loading }) {
         onClick={() => inputRef.current?.click()}
         disabled={loading}
         style={{
-          background: loading ? '#FFBB99' : '#FF7327',
+          background: loading ? '#c4e09c' : '#88c648',
           cursor: loading ? 'not-allowed' : 'pointer',
         }}
         className="
@@ -34,8 +34,8 @@ export default function UploadButton({ onUpload, loading }) {
           text-white text-sm font-medium
           rounded-lg shadow-sm transition-colors
         "
-        onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#E5601A' }}
-        onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#FF7327' }}
+        onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#6aaf35' }}
+        onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#88c648' }}
       >
         <Upload size={16} />
         {loading ? 'Analyse…' : 'Uploader'}

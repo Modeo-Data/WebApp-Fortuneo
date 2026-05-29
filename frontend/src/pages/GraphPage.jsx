@@ -6,8 +6,9 @@ import NodeSelector from '../components/NodeSelector.jsx'
 import UploadModal from '../components/UploadModal.jsx'
 import { getSubgraph } from '../lib/graphUtils.js'
 import { Upload, BarChart3, GitMerge, Database, Download } from 'lucide-react'
+import DarkModeToggle from '../components/DarkModeToggle.jsx'
 
-const ACCENT = '#FF7327'
+const ACCENT = '#88c648'
 
 // ── Canvas placeholder ────────────────────────────────────────────────────────
 function CanvasPlaceholder({ nodeCount }) {
@@ -111,8 +112,11 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
             width: 26, height: 26, borderRadius: 7, background: ACCENT,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 800, fontSize: 13, color: 'white',
-          }}>M</div>
-          <span className="text-sm font-bold text-slate-900 hidden sm:block">Modeo Lineage</span>
+          }}>N</div>
+          <div className="text-left hidden sm:block">
+            <p className="text-sm font-bold text-slate-900 leading-none">Nexus</p>
+            <p className="text-[9px] font-semibold tracking-widest text-slate-400 leading-none mt-0.5 uppercase">Explorer</p>
+          </div>
         </button>
 
         {lineageData && (
@@ -121,44 +125,49 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
             <span className="bg-slate-100 px-2 py-0.5 rounded-full font-medium">{allEdges.length} edges</span>
             {focusedNode && (
               <span className="px-2 py-0.5 rounded-full font-medium"
-                style={{ color: ACCENT, background: '#FFF4EE', border: '1px solid #FFD4B8' }}>
+                style={{ color: ACCENT, background: 'var(--accent-pill-bg)', border: '1px solid var(--accent-pill-border)' }}>
                 {focusedNode.label}
               </span>
             )}
           </div>
         )}
 
-        {lineageData && (
-          <button
-            onClick={() => {
-              const payload = {
-                session_id: sessionId,
-                exported_at: new Date().toISOString(),
-                mode: lineageData.mode,
-                nodes: lineageData.nodes,
-                edges: lineageData.edges,
-              }
-              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `lineage-${sessionId}.json`
-              a.click()
-              URL.revokeObjectURL(url)
-            }}
-            className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
-          >
-            <Download size={13} /> Export JSON
-          </button>
-        )}
+        {/* Right-side actions */}
+        <div className="ml-auto flex items-center gap-2">
+          {lineageData && (
+            <button
+              onClick={() => {
+                const payload = {
+                  session_id: sessionId,
+                  exported_at: new Date().toISOString(),
+                  mode: lineageData.mode,
+                  nodes: lineageData.nodes,
+                  edges: lineageData.edges,
+                }
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `lineage-${sessionId}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              <Download size={13} /> Export JSON
+            </button>
+          )}
 
-        <button onClick={() => { setUploadError(null); setShowModal(true) }}
-          className={`${lineageData ? '' : 'ml-auto'} inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm transition-colors`}
-          style={{ background: ACCENT }}
-          onMouseEnter={e => e.currentTarget.style.background = '#E5601A'}
-          onMouseLeave={e => e.currentTarget.style.background = ACCENT}>
-          <Upload size={13} /> New graph
-        </button>
+          <button onClick={() => { setUploadError(null); setShowModal(true) }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm transition-colors"
+            style={{ background: ACCENT }}
+            onMouseEnter={e => e.currentTarget.style.background = '#6aaf35'}
+            onMouseLeave={e => e.currentTarget.style.background = ACCENT}>
+            <Upload size={13} /> New graph
+          </button>
+
+          <DarkModeToggle />
+        </div>
       </header>
 
       {warnings.length > 0 && (

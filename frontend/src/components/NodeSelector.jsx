@@ -15,7 +15,7 @@ export default function NodeSelector({ nodes, edges, selectedNodeId, onSelect })
             onClick={() => setMode('explore')}
             className="flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-all"
             style={mode === 'explore'
-              ? { background: 'white', color: '#0F172A', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+              ? { background: 'var(--tab-active-bg)', color: 'var(--tab-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
               : { color: '#94A3B8' }}>
             Explore nodes
           </button>
@@ -23,7 +23,7 @@ export default function NodeSelector({ nodes, edges, selectedNodeId, onSelect })
             onClick={() => setMode('sources')}
             className="flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-all"
             style={mode === 'sources'
-              ? { background: 'white', color: '#0F172A', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+              ? { background: 'var(--tab-active-bg)', color: 'var(--tab-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
               : { color: '#94A3B8' }}>
             Sources
           </button>

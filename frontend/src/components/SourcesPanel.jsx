@@ -6,7 +6,7 @@ import { TYPE_CFG } from '../lib/nodeTypes.js'
 import { getDownstream } from '../lib/graphUtils.js'
 import NodeItem from './NodeItem.jsx'
 
-const ACCENT = '#FF7327'
+const ACCENT = '#88c648'
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect }) {
@@ -181,7 +181,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
           {activeLetter && !isSearching && (
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black"
-                style={{ background: '#FFF4EE', color: ACCENT }}>{activeLetter}</span>
+                style={{ background: 'var(--accent-pill-bg)', color: ACCENT }}>{activeLetter}</span>
               <span className="text-xs text-slate-500">{visibleSources.length} source{visibleSources.length !== 1 ? 's' : ''}</span>
             </div>
           )}
@@ -248,8 +248,8 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
                 onClick={() => navigateTo({ activeLetter: letter, activeSource: null })}
                 className="aspect-square rounded-lg flex flex-col items-center justify-center transition-colors"
                 style={active
-                  ? { background: '#FFF4EE', color: ACCENT, cursor: 'pointer' }
-                  : { background: '#F8FAFC', color: '#CBD5E1', cursor: 'default' }}
+                  ? { background: 'var(--letter-active-bg)', color: ACCENT, cursor: 'pointer' }
+                  : { background: 'var(--letter-inactive-bg)', color: 'var(--letter-inactive-text)', cursor: 'default' }}
                 title={active ? `${count} source${count > 1 ? 's' : ''}` : undefined}
               >
                 <span className="text-sm font-black leading-none">{letter}</span>

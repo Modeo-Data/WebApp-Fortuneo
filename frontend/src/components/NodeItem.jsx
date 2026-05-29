@@ -12,7 +12,7 @@ export default function NodeItem({ node, isSelected, onClick }) {
         background: isSelected ? cfg.activeBg : 'transparent',
         border: `1px solid ${isSelected ? cfg.border : 'transparent'}`,
       }}
-      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#F8FAFC' }}
+      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-hover)' }}
       onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
     >
       <div className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center"

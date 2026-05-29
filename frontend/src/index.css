@@ -9,6 +9,104 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #F8FAFC;
   color: #0F172A;
+
+  /* Dark-mode-aware surface tokens used in inline styles */
+  --surface-hover:        #F8FAFC;
+  --surface-inactive:     #F8FAFC;
+  --tab-active-bg:        white;
+  --tab-active-text:      #0F172A;
+  --letter-inactive-bg:   #F8FAFC;
+  --letter-inactive-text: #CBD5E1;
+  --letter-active-bg:     #FFF4EE;
+
+  /* Node card surfaces */
+  --node-bg:           #ffffff;
+  --node-border:       #E2E8F0;
+  --node-label-color:  #0F172A;
+  --node-sheet-bg:     #F1F5F9;
+  --node-sheet-color:  #94A3B8;
+  --node-divider:      #F1F5F9;
+  --node-count-color:  #94A3B8;
+  --node-arrow-color:  #CBD5E1;
+  --node-dot-color:    #E2E8F0;
+
+  /* Type-specific surfaces */
+  --type-surface-source:         #EFF6FF;
+  --type-border-source:          #BFDBFE;
+  --type-active-source:          #DBEAFE;
+  --type-surface-transformation: #FFFBEB;
+  --type-border-transformation:  #FDE68A;
+  --type-active-transformation:  #FEF3C7;
+  --type-surface-kpi:            #ECFDF5;
+  --type-border-kpi:             #A7F3D0;
+  --type-active-kpi:             #D1FAE5;
+  --type-surface-dashboard:      #F5F3FF;
+  --type-border-dashboard:       #DDD6FE;
+  --type-active-dashboard:       #EDE9FE;
+
+  /* Claude / AI section */
+  --claude-bg:     #F5F2FF;
+  --claude-border: #D4C8FC;
+
+  /* Accent pill (focused node, hint, selected letter) */
+  --accent-pill-bg:     #FFF4EE;
+  --accent-pill-border: #FFD4B8;
+
+  /* Graph mode badges */
+  --mode-formula-bg:    #EFF6FF;
+  --mode-formula-text:  #2563EB;
+  --mode-structured-bg: #F0FDF4;
+  --mode-structured-text: #16A34A;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface-hover:        #2d3f52;
+  --surface-inactive:     #1e293b;
+  --tab-active-bg:        #334155;
+  --tab-active-text:      #f1f5f9;
+  --letter-inactive-bg:   #1a2433;
+  --letter-inactive-text: #CBD5E1;
+  --letter-active-bg:     #0d1117;
+
+  /* Node card surfaces */
+  --node-bg:          #1e293b;
+  --node-border:      #334155;
+  --node-label-color: #e2e8f0;
+  --node-sheet-bg:    #273344;
+  --node-sheet-color: #64748b;
+  --node-divider:     #273344;
+  --node-count-color: #64748b;
+  --node-arrow-color: #475569;
+  --node-dot-color:   #334155;
+
+  /* Type-specific surfaces */
+  --type-surface-source:         #0f1f3d;
+  --type-border-source:          #1e3a5f;
+  --type-active-source:          #0f1f3d;
+  --type-surface-transformation: #2a1800;
+  --type-border-transformation:  #4a2e00;
+  --type-active-transformation:  #2a1800;
+  --type-surface-kpi:            #0a2118;
+  --type-border-kpi:             #0f3320;
+  --type-active-kpi:             #0a2118;
+  --type-surface-dashboard:      #1a0f2e;
+  --type-border-dashboard:       #2d1854;
+  --type-active-dashboard:       #1a0f2e;
+
+  /* Claude / AI section */
+  --claude-bg:     #1a1030;
+  --claude-border: #3d2a6b;
+
+  /* Accent pill */
+  --accent-pill-bg:     #0d1a08;
+  --accent-pill-border: #1a3010;
+
+  /* Graph mode badges */
+  --mode-formula-bg:      #0f1f3d;
+  --mode-formula-text:    #93c5fd;
+  --mode-structured-bg:   #0a2118;
+  --mode-structured-text: #6ee7b7;
 }
 
 body {
@@ -23,6 +121,18 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* Dark mode — inputs */
+.dark input {
+  color: #e2e8f0;
+}
+.dark input::placeholder {
+  color: #475569;
+}
+
+/* Dark mode — scrollbars */
+.dark ::-webkit-scrollbar       { background: #0f172a; width: 6px; }
+.dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
 /* React Flow canvas background */
 .react-flow__background {
@@ -43,4 +153,241 @@ body {
 @keyframes belt {
   from { stroke-dashoffset: 16; }
   to   { stroke-dashoffset: 0; }
+}
+
+/* ── Dark / light mode ripple transition (View Transitions API) ─────────────── */
+::view-transition-old(root) {
+  animation: none;
+  z-index: 0;
+}
+::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(0%   at var(--toggle-x, 50%) var(--toggle-y, 50%)); }
+  to   { clip-path: circle(150% at var(--toggle-x, 50%) var(--toggle-y, 50%)); }
+}
+
+/* ── Dark mode toggle button ───────────────────────────────────────────────── */
+.dark-toggle-btn {
+  background: transparent;
+  transition: background-color 0.4s;
+}
+.dark-toggle-btn:hover {
+  background: #1e293b;
+}
+.dark .dark-toggle-btn {
+  border-color: #334155;
+}
+.dark .dark-toggle-btn:hover {
+  background: #0f172a;
+}
+
+/* ── Theme icon (uiverse.io by ArturCodeCraft) — one-to-one ────────────────── */
+.theme__icon {
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.theme__icon > :nth-child(1) {
+  width: 14px;
+  height: 14px;
+  border-radius: 24px;
+  border: 1px solid transparent;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgb(255, 204, 0);
+  transition: width .4s, height .4s, border .4s, background-color .4s;
+  z-index: 10;
+}
+
+.theme__icon:hover > :nth-child(1),
+.theme__icon.is-dark > :nth-child(1) {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(245, 245, 247);
+  background-color: rgb(245, 245, 247);
+}
+
+.theme__icon.is-dark:hover > :nth-child(1) {
+  width: 14px;
+  height: 14px;
+  border: 1px solid transparent;
+  background-color: rgb(255, 204, 0);
+}
+
+.theme__icon > :nth-child(2) {
+  width: 24px;
+  height: 24px;
+  border-radius: 24px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform .4s;
+}
+
+.theme__icon:hover > :nth-child(2),
+.theme__icon.is-dark > :nth-child(2) {
+  transform: translate(-50%, -50%) rotate(-45deg) scale(.8);
+}
+
+.theme__icon.is-dark:hover > :nth-child(2) {
+  transform: translate(-50%, -50%);
+}
+
+.theme__icon > :nth-child(2) > :nth-child(1) {
+  display: block;
+  width: 2px;
+  height: 24px;
+  border-radius: 2px;
+  position: relative;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgb(255, 204, 0);
+}
+
+.theme__icon > :nth-child(2) > :nth-child(2) {
+  display: block;
+  width: 24px;
+  height: 2px;
+  border-radius: 2px;
+  position: relative;
+  top: -54%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgb(255, 204, 0);
+}
+
+.theme__icon > :nth-child(2) > :nth-child(3) {
+  display: block;
+  width: 24px;
+  height: 2px;
+  border-radius: 2px;
+  position: relative;
+  top: -60%;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  background-color: rgb(255, 204, 0);
+}
+
+.theme__icon > :nth-child(2) > :nth-child(4) {
+  display: block;
+  width: 24px;
+  height: 2px;
+  border-radius: 2px;
+  position: relative;
+  top: -70%;
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+  background-color: rgb(255, 204, 0);
+}
+
+.theme__icon > :nth-child(3) {
+  width: 20px;
+  height: 20px;
+  border-radius: 24px;
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  background-color: #1e293b;
+  transition: top .4s, left .4s;
+  transition-delay: .2s;
+  z-index: 20;
+}
+
+.theme__icon:hover > :nth-child(3),
+.theme__icon.is-dark > :nth-child(3) {
+  top: 35%;
+  left: 40%;
+}
+
+.theme__icon.is-dark:hover > :nth-child(3) {
+  top: 50%;
+  left: 100%;
+}
+
+/* ── Colored Tailwind classes — dark mode ───────────────────────────────────── */
+/* Chip / badge backgrounds */
+.dark .bg-blue-50    { background-color: var(--type-surface-source)         !important; }
+.dark .bg-amber-50   { background-color: var(--type-surface-transformation)  !important; }
+.dark .bg-emerald-50 { background-color: var(--type-surface-kpi)            !important; }
+.dark .bg-violet-50  { background-color: var(--type-surface-dashboard)       !important; }
+
+/* Chip borders */
+.dark .border-blue-200    { border-color: var(--type-border-source)         !important; }
+.dark .border-amber-200   { border-color: var(--type-border-transformation)  !important; }
+.dark .border-emerald-200 { border-color: var(--type-border-kpi)            !important; }
+.dark .border-violet-200  { border-color: var(--type-border-dashboard)       !important; }
+
+/* Chip text — lighten so readable on dark bg */
+.dark .text-blue-700    { color: #93c5fd !important; }
+.dark .text-amber-700   { color: #fcd34d !important; }
+.dark .text-emerald-700 { color: #6ee7b7 !important; }
+.dark .text-violet-700  { color: #c4b5fd !important; }
+
+/* ── Global dark mode overrides ────────────────────────────────────────────── */
+
+/* Base */
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Backgrounds */
+.dark .bg-slate-50  { background-color: #0f172a !important; }
+.dark .bg-slate-100 { background-color: #1e293b !important; }
+.dark .bg-white     { background-color: #1e293b !important; }
+
+/* Hover backgrounds */
+.dark .hover\:bg-slate-50:hover  { background-color: #273344 !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+
+/* Borders */
+.dark .border-slate-100 { border-color: #273344 !important; }
+.dark .border-slate-200 { border-color: #334155 !important; }
+
+/* Text */
+.dark .text-slate-900 { color: #f1f5f9 !important; }
+.dark .text-slate-800 { color: #e2e8f0 !important; }
+.dark .text-slate-700 { color: #cbd5e1 !important; }
+.dark .text-slate-600 { color: #94a3b8 !important; }
+.dark .text-slate-500 { color: #94a3b8 !important; }
+.dark .text-slate-400 { color: #64748b !important; }
+.dark .text-slate-300 { color: #475569 !important; }
+.dark .text-slate-200 { color: #334155 !important; }
+
+/* Shadow */
+.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.6) !important; }
+.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.6) !important; }
+.dark .shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.6) !important; }
+
+/* React Flow canvas */
+.dark .react-flow__background    { background-color: #0f172a !important; }
+.dark .react-flow__minimap       { background-color: #1e293b !important; }
+.dark .react-flow__controls      { background: #1e293b !important; border-color: #334155 !important; }
+.dark .react-flow__controls-button {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+}
+.dark .react-flow__controls-button:hover {
+  background: #273344 !important;
+}
+
+/* Dark mode toggle button itself */
+.dark .dark-toggle-btn {
+  border-color: #334155;
+}
+.dark .dark-toggle-btn:hover {
+  background: #273344;
 }

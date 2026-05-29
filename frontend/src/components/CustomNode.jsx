@@ -3,40 +3,24 @@ import { Database, GitMerge, BarChart3, LayoutDashboard } from 'lucide-react'
 
 const TYPE_CONFIG = {
   source: {
-    icon: Database,
-    label: 'Source',
-    accent: '#3B82F6',
-    accentBg: '#EFF6FF',
-    typeColor: '#2563EB',
-    badgeText: '#1D4ED8',
-    badgeBg: '#DBEAFE',
+    icon: Database, label: 'Source',
+    accent: '#3B82F6', typeColor: '#2563EB',
+    accentBg: 'var(--type-surface-source)',
   },
   transformation: {
-    icon: GitMerge,
-    label: 'Transformation',
-    accent: '#F59E0B',
-    accentBg: '#FFFBEB',
-    typeColor: '#D97706',
-    badgeText: '#92400E',
-    badgeBg: '#FEF3C7',
+    icon: GitMerge, label: 'Transformation',
+    accent: '#F59E0B', typeColor: '#D97706',
+    accentBg: 'var(--type-surface-transformation)',
   },
   kpi: {
-    icon: BarChart3,
-    label: 'KPI',
-    accent: '#10B981',
-    accentBg: '#ECFDF5',
-    typeColor: '#059669',
-    badgeText: '#065F46',
-    badgeBg: '#D1FAE5',
+    icon: BarChart3, label: 'KPI',
+    accent: '#10B981', typeColor: '#059669',
+    accentBg: 'var(--type-surface-kpi)',
   },
   dashboard: {
-    icon: LayoutDashboard,
-    label: 'Dashboard',
-    accent: '#7C3AED',
-    accentBg: '#F5F3FF',
-    typeColor: '#7C3AED',
-    badgeText: '#4C1D95',
-    badgeBg: '#EDE9FE',
+    icon: LayoutDashboard, label: 'Dashboard',
+    accent: '#7C3AED', typeColor: '#7C3AED',
+    accentBg: 'var(--type-surface-dashboard)',
   },
 }
 
@@ -52,7 +36,7 @@ export default function CustomNode({ data, selected }) {
     : highlighted
     ? `0 0 0 2px white, 0 0 0 3px ${cfg.accent}88`
     : selected
-    ? `0 0 0 2px white, 0 0 0 2px #FF7327`
+    ? `0 0 0 2px white, 0 0 0 2px #88c648`
     : '0 1px 4px rgba(0,0,0,0.08)'
 
   return (
@@ -61,15 +45,15 @@ export default function CustomNode({ data, selected }) {
         opacity: dimmed ? 0.18 : 1,
         transform: isActive ? 'scale(1.06)' : highlighted ? 'scale(1.03)' : 'scale(1)',
         boxShadow: glowStyle,
-        borderLeft: `3px solid ${cfg.accent}`,
-        background: isActive || highlighted ? cfg.accentBg : '#ffffff',
+        background: isActive || highlighted ? cfg.accentBg : 'var(--node-bg)',
         transition: 'opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
         minWidth: 200,
         maxWidth: 240,
         borderRadius: 10,
-        border: `1px solid #E2E8F0`,
-        borderLeftColor: cfg.accent,
-        borderLeftWidth: 3,
+        borderTop:    `1px solid var(--node-border)`,
+        borderRight:  `1px solid var(--node-border)`,
+        borderBottom: `1px solid var(--node-border)`,
+        borderLeft:   `3px solid ${cfg.accent}`,
         overflow: 'hidden',
         cursor: 'pointer',
       }}
@@ -98,8 +82,8 @@ export default function CustomNode({ data, selected }) {
           </div>
           {data.sheet && (
             <span style={{
-              fontSize: 9, color: '#94A3B8', fontFamily: 'monospace',
-              background: '#F1F5F9', padding: '1px 5px', borderRadius: 4,
+              fontSize: 9, color: 'var(--node-sheet-color)', fontFamily: 'monospace',
+              background: 'var(--node-sheet-bg)', padding: '1px 5px', borderRadius: 4,
               maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {data.sheet}
@@ -109,7 +93,7 @@ export default function CustomNode({ data, selected }) {
 
         {/* Node label */}
         <p style={{
-          fontSize: 13, fontWeight: 600, color: '#0F172A',
+          fontSize: 13, fontWeight: 600, color: 'var(--node-label-color)',
           lineHeight: 1.3, marginBottom: 8,
           overflow: 'hidden', textOverflow: 'ellipsis',
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -120,14 +104,14 @@ export default function CustomNode({ data, selected }) {
         {/* Dependency counts */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          borderTop: '1px solid #F1F5F9', paddingTop: 6,
+          borderTop: '1px solid var(--node-divider)', paddingTop: 6,
         }}>
-          <span style={{ fontSize: 10, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ color: '#CBD5E1' }}>↑</span> {upstreamCount} in
+          <span style={{ fontSize: 10, color: 'var(--node-count-color)', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ color: 'var(--node-arrow-color)' }}>↑</span> {upstreamCount} in
           </span>
-          <span style={{ color: '#E2E8F0' }}>·</span>
-          <span style={{ fontSize: 10, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3 }}>
-            {downstreamCount} out <span style={{ color: '#CBD5E1' }}>↓</span>
+          <span style={{ color: 'var(--node-dot-color)' }}>·</span>
+          <span style={{ fontSize: 10, color: 'var(--node-count-color)', display: 'flex', alignItems: 'center', gap: 3 }}>
+            {downstreamCount} out <span style={{ color: 'var(--node-arrow-color)' }}>↓</span>
           </span>
         </div>
       </div>

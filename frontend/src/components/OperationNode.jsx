@@ -45,7 +45,7 @@ export default function OperationNode({ data, selected }) {
       {/* Main chip */}
       <div style={{
         background: 'white',
-        border: `2px solid ${isActive ? platform.color : selected ? '#FF7327' : highlighted ? '#FF7327' : platform.color}`,
+        border: `2px solid ${isActive ? platform.color : selected ? '#88c648' : highlighted ? '#88c648' : platform.color}`,
         borderRadius: 12,
         padding: '6px 14px',
         display: 'flex',

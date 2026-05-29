@@ -6,28 +6,28 @@ import { usePanelNav } from '../hooks/usePanelNav.js'
 const TYPE_CONFIG = {
   source: {
     icon: Database, label: 'Source',
-    accent: '#2563EB', accentBg: '#EFF6FF',
+    accent: '#2563EB', accentBg: 'var(--type-surface-source)',
     chipClass: 'bg-blue-50 border-blue-200 text-blue-700',
     tabClass: 'bg-blue-600 hover:bg-blue-700',
     headerStyle: { background: '#1D4ED8', color: 'white' },
   },
   transformation: {
     icon: GitMerge, label: 'Transformation',
-    accent: '#D97706', accentBg: '#FFFBEB',
+    accent: '#D97706', accentBg: 'var(--type-surface-transformation)',
     chipClass: 'bg-amber-50 border-amber-200 text-amber-700',
     tabClass: 'bg-amber-500 hover:bg-amber-600',
     headerStyle: { background: '#D97706', color: 'white' },
   },
   kpi: {
     icon: BarChart3, label: 'KPI',
-    accent: '#059669', accentBg: '#ECFDF5',
+    accent: '#059669', accentBg: 'var(--type-surface-kpi)',
     chipClass: 'bg-emerald-50 border-emerald-200 text-emerald-700',
     tabClass: 'bg-emerald-600 hover:bg-emerald-700',
     headerStyle: { background: '#047857', color: 'white' },
   },
   dashboard: {
     icon: LayoutDashboard, label: 'Dashboard',
-    accent: '#7C3AED', accentBg: '#F5F3FF',
+    accent: '#7C3AED', accentBg: 'var(--type-surface-dashboard)',
     chipClass: 'bg-violet-50 border-violet-200 text-violet-700',
     tabClass: 'bg-violet-600 hover:bg-violet-700',
     headerStyle: { background: '#6D28D9', color: 'white' },
@@ -232,7 +232,7 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
             style={{ borderColor: cfg.accent, background: cfg.accentBg }}>
             <Icon size={15} style={{ color: cfg.accent, flexShrink: 0 }} />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 truncate">{node?.label}</p>
+              <p className="text-sm font-bold text-slate-700 truncate">{node?.label}</p>
               <code className="text-[10px] text-slate-400 font-mono">{node?.id}</code>
             </div>
           </div>
@@ -264,9 +264,9 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
         {/* Claude section — KPI uniquement */}
         {isKpi && (
           <div className="mx-4 mb-4 rounded-xl overflow-hidden"
-            style={{ border: '1px solid #D4C8FC', background: '#F5F2FF' }}>
+            style={{ border: '1px solid var(--claude-border)', background: 'var(--claude-bg)' }}>
             <div className="flex items-center justify-between px-3 py-2.5"
-              style={{ borderBottom: '1px solid #D4C8FC' }}>
+              style={{ borderBottom: '1px solid var(--claude-border)' }}>
               <div className="flex items-center gap-1.5">
                 <Sparkles size={13} style={{ color: '#826CF0' }} />
                 <span className="text-xs font-semibold" style={{ color: '#5B44C0' }}>Explain with Claude</span>
@@ -300,7 +300,7 @@ export default function NodeDrawer({ node, nodes, edges, onClose, onNavigate, se
       {/* Footer */}
       <div className="border-t border-slate-100 px-5 py-2 bg-slate-50 shrink-0 flex items-center justify-between">
         <p className="text-[10px] text-slate-400 font-mono truncate">{node?.id}</p>
-        <span className="text-[10px] font-semibold shrink-0 ml-2" style={{ color: '#FF7327' }}>modeo.ai</span>
+        <span className="text-[10px] font-semibold shrink-0 ml-2" style={{ color: '#88c648' }}>nexus-explorer</span>
       </div>
     </aside>
   )

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, UploadCloud } from 'lucide-react'
 import ModeToggle from './ModeToggle.jsx'
 
-const ACCENT = '#FF7327'
+const ACCENT = '#88c648'
 
 export default function UploadModal({ onUpload, loading, error, onClose }) {
   const [mode, setMode] = useState('formula')
@@ -109,7 +109,7 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
           {/* Mode hint */}
           <p className="text-xs text-slate-400 leading-relaxed">
             {isJson
-              ? <><strong className="text-slate-600">JSON mode</strong> — re-imports a graph previously exported from Modeo Lineage.</>
+              ? <><strong className="text-slate-600">JSON mode</strong> — re-imports a graph previously exported from Nexus Explorer.</>
               : mode === 'formula'
               ? <><strong className="text-slate-600">Formula mode</strong> — dependencies auto-detected from cell formulas.</>
               : <><strong className="text-slate-600">Structured mode</strong> — expects sheets: <code className="bg-slate-100 px-1 rounded">Sources</code>, <code className="bg-slate-100 px-1 rounded">Transformations</code>, <code className="bg-slate-100 px-1 rounded">KPIs</code>.</>
