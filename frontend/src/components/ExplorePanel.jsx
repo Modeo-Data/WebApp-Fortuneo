@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Search, X } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { TYPE_CFG, ALL_TYPES } from '../lib/nodeTypes.js'
 import NodeItem from './NodeItem.jsx'
+import TypeCheckbox from './TypeCheckbox.jsx'
 
-const ACCENT = '#88c648'
-
-export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
-  const [search, setSearch] = useState('')
+export default function ExplorePanel({ nodes, selectedNodeId, onSelect, search }) {
   const [activeTypes, setActiveTypes] = useState(new Set(ALL_TYPES))
   const debouncedSearch = useDebounce(search)
 
@@ -21,7 +18,8 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
   }
 
   const typeCounts = useMemo(() => {
-    const c = { source: 0, transformation: 0, kpi: 0 }
+    const c = {}
+    ALL_TYPES.forEach(t => { c[t] = 0 })
     nodes.forEach(n => { if (c[n.type] !== undefined) c[n.type]++ })
     return c
   }, [nodes])
@@ -36,37 +34,16 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
 
   return (
     <>
-      <div className="px-3 pb-2 space-y-2">
-        <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="w-full text-xs pl-7 pr-6 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none transition placeholder:text-slate-400"
-            onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}30`}
-            onBlur={e => e.target.style.boxShadow = ''} />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X size={11} />
-            </button>
-          )}
-        </div>
-        <div className="flex gap-1">
-          {ALL_TYPES.map(type => {
-            const cfg = TYPE_CFG[type]
-            const active = activeTypes.has(type)
-            return (
-              <button key={type} onClick={() => toggleType(type)}
-                className="flex-1 text-center py-1 rounded-md text-[10px] font-semibold transition-all"
-                style={{
-                  background: active ? cfg.bg : 'var(--surface-inactive)',
-                  color: active ? cfg.color : '#94A3B8',
-                  border: `1px solid ${active ? cfg.border : 'transparent'}`,
-                }}>
-                {cfg.label}<span className="ml-0.5 opacity-60">·{typeCounts[type]}</span>
-              </button>
-            )
-          })}
-        </div>
+      <div className="flex justify-around px-3 pt-3 pb-4">
+        {ALL_TYPES.map(type => (
+          <TypeCheckbox
+            key={type}
+            type={type}
+            isActive={activeTypes.has(type)}
+            count={typeCounts[type]}
+            onToggle={toggleType}
+          />
+        ))}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5">

@@ -49,15 +49,16 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   const [uploadError, setUploadError]   = useState(null)
 
   useEffect(() => {
-    setRestoring(true); setLineageData(null); setFocusedNode(null)
+    setRestoring(true); setFocusedNode(null)
     setSelectedNode(null); setDrawerNode(null); setError(null); setWarnings([])
+    // Keep previous lineageData so the left panel stays mounted during loading
 
     axios.get('/api/session/', { headers: { 'X-Session-ID': sessionId } })
       .then(({ data }) => {
         if (data.nodes?.length) setLineageData(data)
-        else setError('Session found but contains no nodes.')
+        else { setLineageData(null); setError('Session found but contains no nodes.') }
       })
-      .catch(() => setError('Could not load this graph. It may have expired.'))
+      .catch(() => { setLineageData(null); setError('Could not load this graph. It may have expired.') })
       .finally(() => setRestoring(false))
   }, [sessionId])
 
@@ -109,7 +110,7 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
 
   const allNodes = lineageData?.nodes ?? []
   const allEdges = lineageData?.edges ?? []
-  const isInitializing = restoring && !lineageData
+  const isInitializing = restoring && !lineageData  // true only on very first load
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -198,7 +199,7 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
           </div>
         )}
 
-        {error && !isInitializing && (
+        {error && !restoring && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-slate-400 z-10 bg-slate-50">
             <div className="text-5xl">⚠️</div>
             <p className="text-sm text-slate-500 max-w-sm text-center">{error}</p>
@@ -219,7 +220,13 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
             />
 
             <div className="flex-1 relative overflow-hidden">
-              {!subgraph && <CanvasPlaceholder nodeCount={allNodes.length} />}
+              {restoring && (
+                <div className="absolute inset-0 flex items-center justify-center gap-3 text-slate-400 z-10 bg-slate-50/80">
+                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm">Loading graph…</span>
+                </div>
+              )}
+              {!subgraph && !restoring && <CanvasPlaceholder nodeCount={allNodes.length} />}
 
               {showToggle && subgraph && (
                 <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm"

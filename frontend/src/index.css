@@ -15,6 +15,12 @@
   --surface-inactive:     #F8FAFC;
   --tab-active-bg:        white;
   --tab-active-text:      #0F172A;
+  --rtab-active-bg:       #ffffff;
+  --rtab-corner:          #ffffff;
+  --rtab-active-text:     #5a9e2f;
+  --rtab-strip:           #e8e6e1;
+  --rtab-inactive-text:   #64748b;
+  --rtab-inactive-hover:  #334155;
   --letter-inactive-bg:   #F8FAFC;
   --letter-inactive-text: #CBD5E1;
   --letter-active-bg:     #FFF4EE;
@@ -64,6 +70,12 @@
   --surface-hover:        #2d3f52;
   --surface-inactive:     #1e293b;
   --tab-active-bg:        #334155;
+  --rtab-active-bg:       #1e293b;
+  --rtab-corner:          #1e293b;
+  --rtab-active-text:     #88c648;
+  --rtab-strip:           #0d1117;
+  --rtab-inactive-text:   rgba(255,255,255,0.45);
+  --rtab-inactive-hover:  rgba(255,255,255,0.75);
   --tab-active-text:      #f1f5f9;
   --letter-inactive-bg:   #1a2433;
   --letter-inactive-text: #CBD5E1;
@@ -322,6 +334,167 @@ body {
 .theme__icon.is-dark:hover > :nth-child(3) {
   top: 50%;
   left: 100%;
+}
+
+/* ── TypeCheckbox (icon circle with color glow) ─────────────────────────────── */
+.tc-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+}
+
+.tc-wrap input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.tc-mark {
+  position: relative;
+  height: 1.8em;
+  width: 1.8em;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s;
+  --s: 5px;
+}
+
+/* Unchecked — soft type surface */
+.tc-mark.source        { background: var(--type-surface-source);         color: #2563eb; }
+.tc-mark.transformation { background: var(--type-surface-transformation); color: #d97706; }
+.tc-mark.kpi           { background: var(--type-surface-kpi);            color: #059669; }
+.tc-mark.dashboard     { background: var(--type-surface-dashboard);      color: #7c3aed; }
+
+/* Checked — solid color + gradient glow */
+.tc-wrap input:checked ~ .tc-mark { color: white; }
+
+.tc-wrap input:checked ~ .tc-mark.source {
+  background: #2563eb;
+  box-shadow: 0 0 4px 2px rgba(37,99,235,.55), 0 0 8px 4px rgba(37,99,235,.2), 0 0 12px 5px rgba(37,99,235,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.transformation {
+  background: #d97706;
+  box-shadow: 0 0 4px 2px rgba(217,119,6,.55), 0 0 8px 4px rgba(217,119,6,.2), 0 0 12px 5px rgba(217,119,6,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.kpi {
+  background: #059669;
+  box-shadow: 0 0 4px 2px rgba(5,150,105,.55), 0 0 8px 4px rgba(5,150,105,.2), 0 0 12px 5px rgba(5,150,105,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.dashboard {
+  background: #7c3aed;
+  box-shadow: 0 0 4px 2px rgba(124,58,237,.55), 0 0 8px 4px rgba(124,58,237,.2), 0 0 12px 5px rgba(124,58,237,.06);
+}
+
+.tc-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  transition: color 0.3s;
+  line-height: 1;
+}
+
+.tc-count.active { color: #0f172a; }
+.dark .tc-count.active { color: #f1f5f9; }
+
+/* ── Panel mode tabs (animated radio-tab style) ─────────────────────────────── */
+.mode-tabs {
+  position: relative;
+  display: flex;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  background-color: var(--rtab-strip);
+  font-size: 13px;
+  width: 100%;
+  padding: 0.35rem 0.75rem 0 0.75rem;
+  flex-shrink: 0;
+}
+
+.mode-tabs .tab input {
+  display: none;
+}
+
+.mode-tabs .tab .tab-name {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  transition: all 0.15s ease-in-out;
+  position: relative;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  color: var(--rtab-inactive-text, #64748b);
+}
+
+.mode-tabs .tab input + .tab-name:hover { color: var(--rtab-inactive-hover, #334155); }
+
+.mode-tabs .tab input + .tab-name .pre-name,
+.mode-tabs .tab input + .tab-name .pos-name {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: var(--rtab-strip);
+  bottom: 0;
+  opacity: 0;
+}
+
+.mode-tabs .tab input + .tab-name .pre-name {
+  right: -10px;
+  border-bottom-left-radius: 300px;
+  box-shadow: -3px 3px 0px 3px var(--rtab-corner);
+}
+
+.mode-tabs .tab input + .tab-name .pos-name {
+  left: -10px;
+  border-bottom-right-radius: 300px;
+  box-shadow: 3px 3px 0px 3px var(--rtab-corner);
+}
+
+.mode-tabs .tab input:checked + .tab-name {
+  background-color: var(--rtab-active-bg);
+  font-weight: 600;
+  cursor: default;
+  color: var(--rtab-active-text, #5a9e2f);
+  animation: tab-name-on 0.1s forwards;
+}
+
+@keyframes tab-name-on {
+  from { background-color: var(--rtab-strip); font-weight: 400; color: var(--rtab-inactive-text); }
+  to   { background-color: var(--rtab-active-bg); font-weight: 600; color: var(--rtab-active-text, #5a9e2f); }
+}
+
+.mode-tabs .tab input:checked + .tab-name .pre-name,
+.mode-tabs .tab input:checked + .tab-name .pos-name {
+  animation: tab-corner-on 0.1s forwards;
+}
+
+@keyframes tab-corner-on {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.mode-tabs .tab .tab-name span:last-child {
+  z-index: 1;
+  padding: 0.4rem 0.9rem;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.mode-tabs .tab input:checked + .tab-name span:last-child {
+  animation: tab-text-on 0.1s forwards;
+}
+
+@keyframes tab-text-on {
+  from { background-color: var(--rtab-strip); }
+  to   { background-color: var(--rtab-active-bg); }
 }
 
 /* ── Colored Tailwind classes — dark mode ───────────────────────────────────── */

@@ -395,12 +395,16 @@ class GraphListView(APIView):
     """GET /api/graphs/ — returns saved (SQLite) and cached (Redis) graph lists."""
 
     def get(self, request: object) -> object:
-        saved_qs = SavedGraph.objects.values('session_id', 'name', 'created_at', 'node_count', 'edge_count', 'mode')
-        saved = [
-            {**s, 'timestamp': s.pop('created_at').isoformat()}
-            for s in (dict(r) for r in saved_qs)
-        ]
-        saved_ids = {s['session_id'] for s in saved}
+        try:
+            saved_qs = SavedGraph.objects.values('session_id', 'name', 'created_at', 'node_count', 'edge_count', 'mode')
+            saved = [
+                {'session_id': r['session_id'], 'name': r['name'], 'timestamp': r['created_at'].isoformat(),
+                 'node_count': r['node_count'], 'edge_count': r['edge_count'], 'mode': r['mode']}
+                for r in (dict(row) for row in saved_qs)
+            ]
+            saved_ids = {s['session_id'] for s in saved}
+        except Exception:
+            saved, saved_ids = [], set()
         cached = [e for e in _load_sessions_index() if e['session_id'] not in saved_ids]
         return Response({'saved': saved, 'cached': cached})
 

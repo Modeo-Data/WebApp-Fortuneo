@@ -9,8 +9,7 @@ import NodeItem from './NodeItem.jsx'
 const ACCENT = '#88c648'
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect }) {
-  const [search, setSearch]             = useState('')
+export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, search, setSearch }) {
   const [downSearch, setDownSearch]     = useState('')
   const [activeLetter, setActiveLetter] = useState(null)
   const [activeSource, setActiveSource] = useState(null)
@@ -154,7 +153,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
   if (activeLetter || isSearching) {
     return (
       <div {...panelProps}>
-        <div className="px-3 pb-2 flex flex-col gap-2">
+        <div className="px-3 pt-2 pb-2 flex flex-col gap-2">
           {!isSearching && (
             <button
               onClick={() => nav.onBackRef.current()}
@@ -163,20 +162,6 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
               <ChevronLeft size={13} /> All letters
             </button>
           )}
-
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search sources…"
-              className="w-full text-xs pl-7 pr-6 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none transition placeholder:text-slate-400"
-              onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}30`}
-              onBlur={e => e.target.style.boxShadow = ''} />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={11} />
-              </button>
-            )}
-          </div>
 
           {activeLetter && !isSearching && (
             <div className="flex items-center gap-2">
@@ -220,22 +205,6 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
   // ── View: A–Z letter picker (default) ────────────────────────────────────────
   return (
     <div {...panelProps}>
-      <div className="px-3 pb-2">
-        <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search sources…"
-            className="w-full text-xs pl-7 pr-6 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none transition placeholder:text-slate-400"
-            onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}30`}
-            onBlur={e => e.target.style.boxShadow = ''} />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X size={11} />
-            </button>
-          )}
-        </div>
-      </div>
-
       <div className="flex-1 overflow-y-auto px-3">
         <div className="grid grid-cols-6 gap-1.5 py-2">
           {ALL_LETTERS.map(letter => {

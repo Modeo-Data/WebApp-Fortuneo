@@ -139,7 +139,7 @@ export default function HomePage({ navigate }) {
       const file = new File([blob], 'mock_lineage.xlsx', { type: blob.type })
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('mode', 'formula')
+      formData.append('mode', 'structured')
       formData.append('name', 'Sample — mock_lineage.xlsx')
       const { data } = await axios.post('/api/upload/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

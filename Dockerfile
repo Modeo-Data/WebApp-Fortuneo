@@ -22,12 +22,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # ── Backend ────────────────────────────────────────────────────────────────────
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock* ./
-RUN uv sync --frozen --no-dev --system
+RUN uv sync --frozen --no-dev
 COPY backend/ ./
 
 # ── Frontend (built static files) ─────────────────────────────────────────────
 COPY --from=frontend-builder /build/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/sites-enabled/default
 
 # ── Process manager ───────────────────────────────────────────────────────────
 COPY deploy/supervisord.conf /etc/supervisor/conf.d/app.conf
