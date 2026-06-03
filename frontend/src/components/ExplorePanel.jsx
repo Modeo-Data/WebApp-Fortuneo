@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
+import { Search, X } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { TYPE_CFG, ALL_TYPES } from '../lib/nodeTypes.js'
 import NodeItem from './NodeItem.jsx'
 import TypeCheckbox from './TypeCheckbox.jsx'
 
-export default function ExplorePanel({ nodes, selectedNodeId, onSelect, search }) {
+export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
+  const [search, setSearch] = useState('')
   const [activeTypes, setActiveTypes] = useState(new Set(ALL_TYPES))
   const debouncedSearch = useDebounce(search)
 
@@ -34,7 +36,23 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect, search }
 
   return (
     <>
-      <div className="flex justify-around px-3 pt-3 pb-4">
+      <div className="px-2 pt-2 pb-1">
+        <div className="sb-wrap">
+          <input
+            type="text"
+            className={`sb-input${search ? ' sb-active' : ''}`}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher des nœuds…"
+          />
+          {search
+            ? <button className="sb-clear" onClick={() => setSearch('')}><X size={11} /></button>
+            : <div className="sb-icon"><Search size={13} /></div>
+          }
+        </div>
+      </div>
+
+      <div className="ep-tc-row">
         {ALL_TYPES.map(type => (
           <TypeCheckbox
             key={type}
@@ -48,7 +66,7 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect, search }
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
         {filtered.length === 0
-          ? <p className="text-xs text-slate-400 text-center py-6">No nodes match</p>
+          ? <p className="text-xs text-slate-400 text-center py-6">Aucun nœud trouvé</p>
           : ALL_TYPES.filter(t => activeTypes.has(t)).map(type => {
               const group = filtered.filter(n => n.type === type)
               if (!group.length) return null
@@ -68,7 +86,7 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect, search }
       </div>
 
       <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
-        {filtered.length} / {nodes.length} nodes
+        {filtered.length} / {nodes.length} nœuds
       </div>
     </>
   )

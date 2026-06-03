@@ -12,7 +12,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 
 from .parsers import parse_excel, merge_graphs
-from .models import SavedGraph
+from .models import SavedGraph, CatalogNode, CatalogEdge
 
 
 @dataclass
@@ -66,7 +66,7 @@ def _format_lineage_for_prompt(node_id: str, subgraph: dict) -> str:
             deps[e['target']].append(e['source'])
 
     # Trier : sources d'abord, KPI en dernier
-    order = {'source': 0, 'transformation': 1, 'kpi': 2}
+    order = {'source': 0, 'transformation': 1, 'use_case': 2}
     sorted_nodes = sorted(subgraph['nodes'], key=lambda n: order.get(n['type'], 1))
 
     for n in sorted_nodes:
@@ -416,7 +416,13 @@ class SaveView(APIView):
     def post(self, request: object, session_id: str) -> object:
         payload = _load_session(session_id)
         if payload is None:
-            return Response({'error': 'Session introuvable ou expirée.'}, status=status.HTTP_404_NOT_FOUND)
+            # Fall back to SQLite for graphs whose Redis entry expired
+            try:
+                existing = SavedGraph.objects.get(session_id=session_id)
+                payload = existing.graph_data
+                _save_session(session_id, payload)
+            except SavedGraph.DoesNotExist:
+                return Response({'error': 'Session introuvable ou expirée.'}, status=status.HTTP_404_NOT_FOUND)
         index = _load_sessions_index()
         meta = next((e for e in index if e['session_id'] == session_id), {})
         SavedGraph.objects.update_or_create(
@@ -434,6 +440,199 @@ class SaveView(APIView):
     def delete(self, request: object, session_id: str) -> object:
         SavedGraph.objects.filter(session_id=session_id).delete()
         return Response({'status': 'removed'})
+
+
+class GlobalSearchView(APIView):
+    """GET /api/search/?q=<query> — search nodes across all saved and cached graphs."""
+
+    def get(self, request: object) -> object:
+        q = request.query_params.get('q', '').strip().lower()
+        if len(q) < 2:
+            return Response([])
+
+        results = []
+        seen: set[tuple] = set()
+
+        def _search_graph(session_id: str, graph_name: str, graph_data: dict) -> None:
+            for node in graph_data.get('nodes', []):
+                label = (node.get('label') or '').lower()
+                sheet = (node.get('sheet') or '').lower()
+                if q in label or q in sheet:
+                    key = (session_id, node['id'])
+                    if key not in seen:
+                        seen.add(key)
+                        results.append({
+                            'node_id':    node['id'],
+                            'label':      node.get('label', ''),
+                            'type':       node.get('type', ''),
+                            'sheet':      node.get('sheet', ''),
+                            'session_id': session_id,
+                            'graph_name': graph_name,
+                        })
+
+        # Saved graphs (SQLite — always available)
+        saved_ids: set[str] = set()
+        try:
+            for sg in SavedGraph.objects.all():
+                saved_ids.add(sg.session_id)
+                _search_graph(sg.session_id, sg.name, sg.graph_data)
+        except Exception:
+            pass
+
+        # Cached-only graphs (Redis)
+        for entry in _load_sessions_index():
+            sid = entry['session_id']
+            if sid in saved_ids:
+                continue
+            payload = _load_session(sid)
+            if payload:
+                _search_graph(sid, entry.get('name', sid), payload)
+            if len(results) >= 200:
+                break
+
+        results.sort(key=lambda r: (0 if r['label'].lower().startswith(q) else 1, r['label'].lower()))
+        return Response(results[:60])
+
+
+class CatalogImportView(APIView):
+    """POST /api/catalog/import/ — parse files and upsert every node/edge into the catalog."""
+
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        files = request.FILES.getlist('file') or request.FILES.getlist('files')
+        if not files:
+            return Response({'error': 'Aucun fichier fourni.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        json_files  = [f for f in files if f.name.endswith('.json')]
+        excel_files = [f for f in files if f.name.endswith(('.xlsx', '.xls'))]
+        bad = [f.name for f in files if f not in json_files and f not in excel_files]
+        if bad:
+            return Response({'error': f"Format non supporté : {', '.join(bad)}."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if json_files and excel_files:
+            return Response({'error': 'Ne mélangez pas JSON et Excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if json_files:
+            result = _parse_json_files(json_files)
+        else:
+            raw_mode = request.data.get('mode', 'formula')
+            mode = raw_mode if raw_mode in ('formula', 'structured') else 'formula'
+            result = _parse_excel_files(excel_files, mode)
+
+        if result.error:
+            return Response({'error': result.error}, status=status.HTTP_400_BAD_REQUEST)
+
+        nodes = result.merged.get('nodes', [])
+        edges = result.merged.get('edges', [])
+
+        added_nodes = updated_nodes = added_edges = 0
+        for n in nodes:
+            _, created = CatalogNode.objects.update_or_create(
+                node_id=n['id'],
+                defaults={
+                    'label': n.get('label', ''),
+                    'type':  n.get('type', 'source'),
+                    'stage': n.get('stage') or None,
+                    'sheet': n.get('sheet') or None,
+                },
+            )
+            if created:
+                added_nodes += 1
+            else:
+                updated_nodes += 1
+
+        existing_node_ids = {n['id'] for n in nodes}
+        for e in edges:
+            if e['source'] in existing_node_ids and e['target'] in existing_node_ids:
+                _, created = CatalogEdge.objects.get_or_create(
+                    source_id=e['source'], target_id=e['target'],
+                )
+                if created:
+                    added_edges += 1
+
+        return Response({
+            'added_nodes':   added_nodes,
+            'updated_nodes': updated_nodes,
+            'added_edges':   added_edges,
+            'total_nodes':   CatalogNode.objects.count(),
+            'total_edges':   CatalogEdge.objects.count(),
+        })
+
+
+class CatalogNodesView(APIView):
+    """GET /api/catalog/nodes/?q=<query>&type=<type> — browse the catalog."""
+
+    def get(self, request):
+        q    = request.query_params.get('q', '').strip().lower()
+        typ  = request.query_params.get('type', '').strip()
+        qs   = CatalogNode.objects.all()
+        if typ:
+            qs = qs.filter(type=typ)
+        if q:
+            qs = qs.filter(label__icontains=q)
+        nodes = list(qs.values('node_id', 'label', 'type', 'stage', 'sheet')[:200])
+        total = CatalogNode.objects.count()
+        return Response({'nodes': nodes, 'total': total})
+
+
+class CatalogGraphView(APIView):
+    """POST /api/catalog/graph/ — build a session from a catalog node's full lineage."""
+
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        node_id = request.data.get('node_id', '').strip()
+        if not node_id:
+            return Response({'error': 'node_id requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            seed = CatalogNode.objects.get(node_id=node_id)
+        except CatalogNode.DoesNotExist:
+            return Response({'error': f'Nœud "{node_id}" introuvable dans le catalogue.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # BFS upstream (ancestors)
+        upstream = set()
+        queue = [node_id]
+        while queue:
+            cur = queue.pop()
+            for e in CatalogEdge.objects.filter(target_id=cur).values_list('source_id', flat=True):
+                if e not in upstream:
+                    upstream.add(e)
+                    queue.append(e)
+
+        # BFS downstream (descendants)
+        downstream = set()
+        queue = [node_id]
+        while queue:
+            cur = queue.pop()
+            for e in CatalogEdge.objects.filter(source_id=cur).values_list('target_id', flat=True):
+                if e not in downstream:
+                    downstream.add(e)
+                    queue.append(e)
+
+        relevant_ids = upstream | downstream | {node_id}
+        catalog_nodes = CatalogNode.objects.filter(node_id__in=relevant_ids)
+        catalog_edges = CatalogEdge.objects.filter(
+            source_id__in=relevant_ids, target_id__in=relevant_ids
+        )
+
+        nodes = [
+            {'id': n.node_id, 'label': n.label, 'type': n.type,
+             'stage': n.stage, 'sheet': n.sheet}
+            for n in catalog_nodes
+        ]
+        edges = [
+            {'source': e.source_id, 'target': e.target_id}
+            for e in catalog_edges
+        ]
+
+        session_id = str(uuid.uuid4())
+        payload = {'nodes': nodes, 'edges': edges, 'mode': 'catalog'}
+        _save_session(session_id, payload)
+        _register_session(session_id, seed.label, len(nodes), len(edges), 'catalog')
+
+        return Response({'session_id': session_id, 'node_count': len(nodes), 'edge_count': len(edges)})
 
 
 class ExplainView(APIView):

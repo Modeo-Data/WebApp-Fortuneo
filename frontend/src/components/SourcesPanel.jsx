@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, X, ChevronLeft, Database } from 'lucide-react'
+import { ChevronLeft, Database, Search, X } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { usePanelNav } from '../hooks/usePanelNav.js'
 import { TYPE_CFG } from '../lib/nodeTypes.js'
@@ -9,12 +9,31 @@ import NodeItem from './NodeItem.jsx'
 const ACCENT = '#88c648'
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, search, setSearch }) {
-  const [downSearch, setDownSearch]     = useState('')
+function SearchBar({ value, onChange, placeholder }) {
+  return (
+    <div className="px-2 pt-2 pb-1">
+      <div className="sb-wrap">
+        <input
+          type="text"
+          className={`sb-input${value ? ' sb-active' : ''}`}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+        />
+        {value
+          ? <button className="sb-clear" onClick={() => onChange({ target: { value: '' } })}><X size={11} /></button>
+          : <div className="sb-icon"><Search size={13} /></div>
+        }
+      </div>
+    </div>
+  )
+}
+
+export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect }) {
   const [activeLetter, setActiveLetter] = useState(null)
   const [activeSource, setActiveSource] = useState(null)
-  const debouncedSearch     = useDebounce(search)
-  const debouncedDownSearch = useDebounce(downSearch)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search)
 
   // ── Navigation history (shared hook) ────────────────────────────────────────
   const nav = usePanelNav({ activeLetter: null, activeSource: null })
@@ -22,8 +41,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
   function applyNavState({ activeLetter: al, activeSource: as }) {
     setActiveLetter(al)
     setActiveSource(as)
-    if (!as) setDownSearch('')
-    if (!al && !as) setSearch('')
+    setSearch('')
   }
 
   nav.onBackRef.current = () => {
@@ -77,15 +95,15 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
   }, [activeSource, nodes, edges])
 
   const filteredDownstream = useMemo(() => {
-    const q = debouncedDownSearch.trim().toLowerCase()
+    const q = debouncedSearch.trim().toLowerCase()
     return q
       ? downstreamNodes.filter(n =>
           n.label?.toLowerCase().includes(q) || n.sheet?.toLowerCase().includes(q))
       : downstreamNodes
-  }, [downstreamNodes, debouncedDownSearch])
+  }, [downstreamNodes, debouncedSearch])
 
   const downByType = useMemo(() => {
-    const groups = { transformation: [], kpi: [], dashboard: [] }
+    const groups = { transformation: [], use_case: [] }
     filteredDownstream.forEach(n => { if (groups[n.type]) groups[n.type].push(n) })
     return groups
   }, [filteredDownstream])
@@ -94,37 +112,29 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
   if (activeSource) {
     return (
       <div {...panelProps}>
-        <div className="px-3 pb-2 flex flex-col gap-2">
+        <div className="px-3 pt-2 pb-1">
           <button
             onClick={() => nav.onBackRef.current()}
             className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <ChevronLeft size={13} /> Back to sources
+            <ChevronLeft size={13} /> Retour aux sources
           </button>
-
-          <div className="relative">
-            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input type="text" value={downSearch} onChange={e => setDownSearch(e.target.value)}
-              placeholder="Filter downstream…"
-              className="w-full text-xs pl-7 pr-6 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none transition placeholder:text-slate-400"
-              onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}30`}
-              onBlur={e => e.target.style.boxShadow = ''} />
-            {downSearch && (
-              <button onClick={() => setDownSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={10} />
-              </button>
-            )}
-          </div>
         </div>
+
+        <SearchBar
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Filtrer en aval…"
+        />
 
         <div className="flex-1 overflow-y-auto border-t border-slate-100 pt-2">
           <p className="text-[9px] font-bold uppercase tracking-widest px-4 pb-2 text-slate-400">
-            Downstream of <span className="text-slate-600">{activeSource.label}</span>
+            En aval de <span className="text-slate-600">{activeSource.label}</span>
           </p>
           {filteredDownstream.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-3">No downstream nodes match</p>
+            <p className="text-xs text-slate-400 text-center py-3">Aucun nœud en aval trouvé</p>
           ) : (
-            ['transformation', 'kpi', 'dashboard'].map(type => {
+            ['transformation', 'use_case'].map(type => {
               const group = downByType[type]
               if (!group.length) return null
               const cfg = TYPE_CFG[type]
@@ -143,7 +153,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
         </div>
 
         <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
-          {filteredDownstream.length} / {downstreamNodes.length} downstream
+          {filteredDownstream.length} / {downstreamNodes.length} en aval
         </div>
       </div>
     )
@@ -153,28 +163,26 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
   if (activeLetter || isSearching) {
     return (
       <div {...panelProps}>
-        <div className="px-3 pt-2 pb-2 flex flex-col gap-2">
+        <div className="px-3 pt-2 pb-1 flex items-center gap-2">
           {!isSearching && (
             <button
               onClick={() => nav.onBackRef.current()}
-              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors shrink-0"
             >
-              <ChevronLeft size={13} /> All letters
+              <ChevronLeft size={13} /> {activeLetter}
             </button>
-          )}
-
-          {activeLetter && !isSearching && (
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black"
-                style={{ background: 'var(--accent-pill-bg)', color: ACCENT }}>{activeLetter}</span>
-              <span className="text-xs text-slate-500">{visibleSources.length} source{visibleSources.length !== 1 ? 's' : ''}</span>
-            </div>
           )}
         </div>
 
+        <SearchBar
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher des sources…"
+        />
+
         <div className="flex-1 overflow-y-auto">
           {visibleSources.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6 px-3">No sources match</p>
+            <p className="text-xs text-slate-400 text-center py-6 px-3">Aucune source trouvée</p>
           ) : (
             visibleSources.map(node => {
               const cfg = TYPE_CFG.source
@@ -195,7 +203,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
 
         <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
           {isSearching
-            ? `${visibleSources.length} result${visibleSources.length !== 1 ? 's' : ''}`
+            ? `${visibleSources.length} résultat${visibleSources.length !== 1 ? 's' : ''}`
             : `${visibleSources.length} / ${sourceNodes.length} sources`}
         </div>
       </div>
@@ -205,8 +213,13 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
   // ── View: A–Z letter picker (default) ────────────────────────────────────────
   return (
     <div {...panelProps}>
+      <SearchBar
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search sources…"
+      />
       <div className="flex-1 overflow-y-auto px-3">
-        <div className="grid grid-cols-6 gap-1.5 py-2">
+        <div className="grid grid-cols-4 gap-2 py-2">
           {ALL_LETTERS.map(letter => {
             const count = letterMap[letter]?.length ?? 0
             const active = count > 0
@@ -215,14 +228,11 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
                 key={letter}
                 disabled={!active}
                 onClick={() => navigateTo({ activeLetter: letter, activeSource: null })}
-                className="aspect-square rounded-lg flex flex-col items-center justify-center transition-colors"
-                style={active
-                  ? { background: 'var(--letter-active-bg)', color: ACCENT, cursor: 'pointer' }
-                  : { background: 'var(--letter-inactive-bg)', color: 'var(--letter-inactive-text)', cursor: 'default' }}
+                className={`letter-btn${active ? ' active' : ' inactive'}`}
                 title={active ? `${count} source${count > 1 ? 's' : ''}` : undefined}
               >
-                <span className="text-sm font-black leading-none">{letter}</span>
-                {active && <span className="text-[8px] leading-none mt-0.5 font-medium opacity-70">{count}</span>}
+                <span className="letter-char">{letter}</span>
+                {active && <span className="letter-count">{count}</span>}
               </button>
             )
           })}
@@ -230,7 +240,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect, s
       </div>
 
       <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
-        {sourceNodes.length} sources · {Object.keys(letterMap).length} letters
+        {sourceNodes.length} sources · {Object.keys(letterMap).length} lettres
       </div>
     </div>
   )

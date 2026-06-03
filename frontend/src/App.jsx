@@ -33,6 +33,10 @@ export default function App() {
     window.history.back()
   }
 
+  useEffect(() => {
+    document.body.classList.toggle('page-graph', location.page === 'graph')
+  }, [location.page])
+
   if (location.page === 'graph') {
     return <GraphPage sessionId={location.sessionId} nodeId={location.nodeId} navigate={navigate} goBack={goBack} />
   }

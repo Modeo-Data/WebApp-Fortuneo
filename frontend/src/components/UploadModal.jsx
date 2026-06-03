@@ -4,7 +4,7 @@ import ModeToggle from './ModeToggle.jsx'
 
 const ACCENT = '#88c648'
 
-export default function UploadModal({ onUpload, loading, error, onClose }) {
+export default function UploadModal({ onUpload, loading, error, onClose, catalogMode = false }) {
   const [mode, setMode] = useState('formula')
   const [graphName, setGraphName] = useState('')
   const [dragging, setDragging] = useState(false)
@@ -42,8 +42,14 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">New graph</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Upload one or more Excel files</p>
+            <h2 className="text-sm font-bold text-slate-800">
+              {catalogMode ? 'Importer dans le catalogue' : 'Nouveau graphe'}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {catalogMode
+                ? 'Ajouter des fichiers au catalogue de tables persistant'
+                : 'Importer un ou plusieurs fichiers Excel'}
+            </p>
           </div>
           <button onClick={onClose} disabled={loading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
@@ -56,27 +62,29 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
           {/* Mode toggle — hidden for JSON imports */}
           {!isJson && (
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Parse mode</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mode d'analyse</span>
               <ModeToggle mode={mode} onChange={setMode} />
             </div>
           )}
 
-          {/* Name input */}
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
-              Graph name <span className="normal-case font-normal text-slate-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={graphName}
-              onChange={e => setGraphName(e.target.value)}
-              placeholder="e.g. Q1 Revenue KPIs"
-              className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-slate-50
-                focus:outline-none transition"
-              onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}40`}
-              onBlur={e => e.target.style.boxShadow = ''}
-            />
-          </div>
+          {/* Name input — only for regular graph mode */}
+          {!catalogMode && (
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Nom du graphe <span className="normal-case font-normal text-slate-400">(optionnel)</span>
+              </label>
+              <input
+                type="text"
+                value={graphName}
+                onChange={e => setGraphName(e.target.value)}
+                placeholder="ex. KPIs Revenus T1"
+                className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-slate-50
+                  focus:outline-none transition"
+                onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}40`}
+                onBlur={e => e.target.style.boxShadow = ''}
+              />
+            </div>
+          )}
 
           {/* Drop zone */}
           <div
@@ -91,15 +99,15 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
             {loading ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-7 h-7 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-slate-500 font-medium">Analysing…</p>
+                <p className="text-sm text-slate-500 font-medium">Analyse en cours…</p>
               </div>
             ) : (
               <>
                 <UploadCloud size={28} className="mx-auto mb-2 text-slate-300" />
                 <p className="text-sm font-semibold text-slate-600">
-                  Drop files here or <span style={{ color: ACCENT }}>browse</span>
+                  Déposez des fichiers ici ou <span style={{ color: ACCENT }}>parcourez</span>
                 </p>
-                <p className="text-xs text-slate-400 mt-1">.xlsx / .xls / .json — multiple files supported</p>
+                <p className="text-xs text-slate-400 mt-1">.xlsx / .xls / .json — plusieurs fichiers acceptés</p>
               </>
             )}
             <input ref={inputRef} type="file" accept=".xlsx,.xls,.json" multiple className="hidden"
@@ -109,10 +117,10 @@ export default function UploadModal({ onUpload, loading, error, onClose }) {
           {/* Mode hint */}
           <p className="text-xs text-slate-400 leading-relaxed">
             {isJson
-              ? <><strong className="text-slate-600">JSON mode</strong> — re-imports a graph previously exported from Nexus Explorer.</>
+              ? <><strong className="text-slate-600">Mode JSON</strong> — réimporte un graphe précédemment exporté depuis Nexus Explorer.</>
               : mode === 'formula'
-              ? <><strong className="text-slate-600">Formula mode</strong> — dependencies auto-detected from cell formulas.</>
-              : <><strong className="text-slate-600">Structured mode</strong> — expects sheets: <code className="bg-slate-100 px-1 rounded">Sources</code>, <code className="bg-slate-100 px-1 rounded">Transformations</code>, <code className="bg-slate-100 px-1 rounded">KPIs</code>.</>
+              ? <><strong className="text-slate-600">Mode Formules</strong> — dépendances détectées automatiquement depuis les formules de cellules.</>
+              : <><strong className="text-slate-600">Mode Structuré</strong> — attend les feuilles : <code className="bg-slate-100 px-1 rounded">Sources</code>, <code className="bg-slate-100 px-1 rounded">Transformations</code>, <code className="bg-slate-100 px-1 rounded">KPIs</code>.</>
             }
           </p>
 

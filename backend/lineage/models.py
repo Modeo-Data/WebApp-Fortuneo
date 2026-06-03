@@ -12,3 +12,24 @@ class SavedGraph(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class CatalogNode(models.Model):
+    """Persistent registry of every known node across all imported files."""
+    node_id = models.CharField(max_length=500, unique=True, db_index=True)
+    label   = models.CharField(max_length=500)
+    type    = models.CharField(max_length=50)   # source | transformation | use_case
+    stage   = models.CharField(max_length=50, null=True, blank=True)
+    sheet   = models.CharField(max_length=200, null=True, blank=True)
+
+    class Meta:
+        ordering = ['label']
+
+
+class CatalogEdge(models.Model):
+    """Directed dependency: source_id → target_id."""
+    source_id = models.CharField(max_length=500, db_index=True)
+    target_id = models.CharField(max_length=500, db_index=True)
+
+    class Meta:
+        unique_together = ('source_id', 'target_id')

@@ -110,7 +110,7 @@ export default function OperationNode({ data, selected }) {
         letterSpacing: '0.08em',
         color: '#94A3B8',
       }}>
-        operation
+        opération
       </span>
 
       <Handle

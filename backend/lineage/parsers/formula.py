@@ -195,7 +195,7 @@ def parse_formula(file: object) -> dict:
         elif is_referenced_by_others:
             node_type = 'transformation'
         else:
-            node_type = 'kpi'
+            node_type = 'use_case'
 
         # TODO: detect the tool/platform used to produce this column and pass it to the frontend.
         # In formula mode this is hard to infer automatically — one approach would be to

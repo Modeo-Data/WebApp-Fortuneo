@@ -11,28 +11,54 @@ Un fichier peut ne contenir qu'une partie des sheets.
 import openpyxl
 
 
-_SHEET_ALIASES = {
-    'sources':         'source',
-    'source':          'source',
-    'données':         'source',
-    'donnees':         'source',
-    'data':            'source',
-    'inputs':          'source',
-    'transformations': 'transformation',
-    'transformation':  'transformation',
-    'transfo':         'transformation',
-    'calculs':         'transformation',
-    'calculations':    'transformation',
-    'kpis':            'kpi',
-    'kpi':             'kpi',
-    'indicateurs':     'kpi',
-    'outputs':         'kpi',
-    'dashboards':      'dashboard',
-    'dashboard':       'dashboard',
-    'tableaux de bord':'dashboard',
-    'tableau de bord': 'dashboard',
-    'rapports':        'dashboard',
-    'reports':         'dashboard',
+# Maps normalised sheet name → (type, stage | None)
+# stage is the dbt layer enum: 'staging' | 'core' | 'mart' | None
+_SHEET_ALIASES: dict[str, tuple[str, str | None]] = {
+    # source — données brutes
+    'sources':          ('source', None),
+    'source':           ('source', None),
+    'raw':              ('source', None),
+    'raws':             ('source', None),
+    'données':          ('source', None),
+    'donnees':          ('source', None),
+    'data':             ('source', None),
+    'inputs':           ('source', None),
+    'brut':             ('source', None),
+    'bruts':            ('source', None),
+    # transformation — staging
+    'staging':          ('transformation', 'staging'),
+    'stg':              ('transformation', 'staging'),
+    'stage':            ('transformation', 'staging'),
+    # transformation — core
+    'core':             ('transformation', 'core'),
+    'intermediate':     ('transformation', 'core'),
+    'int':              ('transformation', 'core'),
+    'intermédiaire':    ('transformation', 'core'),
+    'intermediaire':    ('transformation', 'core'),
+    # transformation — mart
+    'mart':             ('transformation', 'mart'),
+    'marts':            ('transformation', 'mart'),
+    'kpis':             ('transformation', 'mart'),
+    'kpi':              ('transformation', 'mart'),
+    'indicateurs':      ('transformation', 'mart'),
+    # transformation — generic (no stage)
+    'transformations':  ('transformation', None),
+    'transformation':   ('transformation', None),
+    'transfo':          ('transformation', None),
+    'calculs':          ('transformation', None),
+    'calculations':     ('transformation', None),
+    'outputs':          ('transformation', None),
+    # use_case — usage final
+    'use_case':         ('use_case', None),
+    'use_cases':        ('use_case', None),
+    'usages':           ('use_case', None),
+    'usage':            ('use_case', None),
+    'dashboards':       ('use_case', None),
+    'dashboard':        ('use_case', None),
+    'tableaux de bord': ('use_case', None),
+    'tableau de bord':  ('use_case', None),
+    'rapports':         ('use_case', None),
+    'reports':          ('use_case', None),
 }
 
 
@@ -105,8 +131,8 @@ def parse_structured(file: object) -> dict:
     except Exception as e:
         return {'nodes': [], 'edges': [], '_error': str(e)}
 
-    # Mapper les sheets détectées vers leur type
-    typed_sheets: dict[str, str] = {}
+    # Mapper les sheets détectées vers (type, stage)
+    typed_sheets: dict[str, tuple[str, str | None]] = {}
     for sheet_name in wb.sheetnames:
         alias = _SHEET_ALIASES.get(_normalize(sheet_name))
         if alias:
@@ -118,7 +144,7 @@ def parse_structured(file: object) -> dict:
             'edges': [],
             '_warning': (
                 "Aucune sheet reconnue. "
-                "Attendu : Sources, Transformations, KPIs "
+                "Attendu : Sources, Staging, Core, Mart, Use_Case "
                 "(noms insensibles à la casse)."
             ),
         }
@@ -127,7 +153,7 @@ def parse_structured(file: object) -> dict:
     edges: list[dict] = []
     seen_ids: set[str] = set()
 
-    for sheet_name, node_type in typed_sheets.items():
+    for sheet_name, (node_type, node_stage) in typed_sheets.items():
         ws = wb[sheet_name]
         rows = _rows_as_dicts(ws)
 
@@ -145,7 +171,10 @@ def parse_structured(file: object) -> dict:
             # Example: tool = _get(row, 'tool', 'platform', 'outil', 'technologie', 'tech') or None
             # Then include it in the node dict: {'id': nid, 'label': label, 'type': node_type, 'platformId': tool}
             # The frontend buildGraph() would then auto-create an OperationNode on edges leading into that node.
-            nodes.append({'id': nid, 'label': label, 'type': node_type})
+            node = {'id': nid, 'label': label, 'type': node_type}
+            if node_stage:
+                node['stage'] = node_stage
+            nodes.append(node)
 
             # Dépendances (colonne depends_on, sources, dépend de…)
             deps_raw = _get(row, 'depends_on', 'sources', 'dépend de', 'depend de',

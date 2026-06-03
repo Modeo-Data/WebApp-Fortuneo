@@ -24,12 +24,14 @@ const nodeTypes = {
 const edgeTypes = { belt: BeltEdge }
 
 // ── AABB helpers ───────────────────────────────────────────────────────────────
-function barrierOf(pos) {
+function barrierOf(snap) {
+  const w = snap.w ?? NODE_W
+  const h = snap.h ?? NODE_H
   return {
-    x1: pos.x - BARRIER_PAD,
-    y1: pos.y - BARRIER_PAD,
-    x2: pos.x + NODE_W + BARRIER_PAD,
-    y2: pos.y + NODE_H + BARRIER_PAD,
+    x1: snap.x - BARRIER_PAD,
+    y1: snap.y - BARRIER_PAD,
+    x2: snap.x + w + BARRIER_PAD,
+    y2: snap.y + h + BARRIER_PAD,
   }
 }
 
@@ -38,8 +40,19 @@ function overlaps(a, b) {
 }
 
 // ── InnerGraph ─────────────────────────────────────────────────────────────────
-function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClick, selectedNodeId }) {
+function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClick, selectedNodeId, diffStatusMap, drawerOpen }) {
   const { screenToFlowPosition, fitView } = useReactFlow()
+
+  // Delay "show" until closing animation (300ms) completes, hide immediately on open
+  const [drawerFullyClosed, setDrawerFullyClosed] = useState(!drawerOpen)
+  useEffect(() => {
+    if (drawerOpen) {
+      setDrawerFullyClosed(false)
+    } else {
+      const t = setTimeout(() => setDrawerFullyClosed(true), 300)
+      return () => clearTimeout(t)
+    }
+  }, [drawerOpen])
 
   const init = useMemo(() => buildGraph(nodes, edges), []) // eslint-disable-line
   const [rfNodes, setNodes, onNodesChange] = useNodesState(init.rfNodes)
@@ -61,12 +74,26 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
     const { rfNodes: n, rfEdges: e } = buildGraph(nodes, edges)
     setNodes(n); setEdges(e)
     homePos.current = {}
-    n.forEach(nd => { homePos.current[nd.id] = { ...nd.position } })
+    n.forEach(nd => {
+      homePos.current[nd.id] = { x: nd.position.x, y: nd.position.y, w: nd.measured?.width ?? NODE_W, h: nd.measured?.height ?? NODE_H }
+    })
     setActiveNodeId(null); setOpenDropdownId(null); setContextMenu(null)
     setTimeout(() => fitView({ padding: 0.18, duration: 350 }), 60)
   }, [nodes, edges])
 
   useEffect(() => { if (!selectedNodeId) setActiveNodeId(null) }, [selectedNodeId])
+
+  // Sync actual measured dimensions from ReactFlow into homePos
+  useEffect(() => {
+    rfNodes.forEach(n => {
+      const w = n.measured?.width
+      const h = n.measured?.height
+      if (w && h && homePos.current[n.id]) {
+        homePos.current[n.id].w = w
+        homePos.current[n.id].h = h
+      }
+    })
+  }, [rfNodes])
 
   // ── Dropdown push / restore ────────────────────────────────────────────────
   // Strategy: on every openDropdownId change, restore ALL nodes to their home,
@@ -85,7 +112,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       // Step 1: restore everything to home
       let cur = prev.map(n => {
         const home = snap[n.id]
-        return home ? { ...n, position: { ...home } } : n
+        return home ? { ...n, position: { x: home.x, y: home.y } } : n
       })
 
       // Step 2: if closing, we're done
@@ -99,12 +126,14 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       const dropH     = Math.min(itemCount, MAX_VISIBLE) * ITEM_H
       if (dropH === 0) return cur
 
-      const xOff = (NODE_W - DROPDOWN_W) / 2
+      const parentW = home.w ?? NODE_W
+      const parentH = home.h ?? NODE_H
+      const xOff = (parentW - DROPDOWN_W) / 2
       const drop = {
         x1: home.x + xOff,
-        y1: home.y + NODE_H,
+        y1: home.y + parentH,
         x2: home.x + xOff + DROPDOWN_W,
-        y2: home.y + NODE_H + dropH,
+        y2: home.y + parentH + dropH,
       }
 
       const SKIP = new Set([openDropdownId])
@@ -123,7 +152,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
 
       // Expand group: every node in the same column at or below the topmost collider
       const minY = Math.min(...colliders.map(n => snap[n.id].y))
-      const pCX  = home.x + NODE_W / 2
+      const pCX  = home.x + parentW / 2
       const gIds = new Set(colliders.map(n => n.id))
       cur.forEach(n => {
         if (SKIP.has(n.id) || gIds.has(n.id) || !snap[n.id]) return
@@ -145,10 +174,13 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
   // We restore everything to homePos first (clearing prior push from when this
   // node was elsewhere), then push and SAVE the new positions.
   const handleNodeDragStop = useCallback((_, draggedNode) => {
-    homePos.current[draggedNode.id] = { ...draggedNode.position }
+    homePos.current[draggedNode.id] = {
+      x: draggedNode.position.x, y: draggedNode.position.y,
+      w: draggedNode.measured?.width ?? NODE_W, h: draggedNode.measured?.height ?? NODE_H,
+    }
 
     const SKIP = new Set([draggedNode.id])
-    const dragB = barrierOf(draggedNode.position)
+    const dragB = barrierOf(homePos.current[draggedNode.id])
 
     setNodes(prev => {
       const snap = {}
@@ -157,7 +189,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       // Restore every other node to its homePos (wipes any prior visual displacement)
       let cur = prev.map(n => {
         if (SKIP.has(n.id) || !snap[n.id]) return n
-        return { ...n, position: { ...snap[n.id] } }
+        return { ...n, position: { x: snap[n.id].x, y: snap[n.id].y } }
       })
 
       const colliders = cur.filter(n => {
@@ -166,39 +198,79 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       })
       if (!colliders.length) return cur
 
-      const dragCX = draggedNode.position.x + NODE_W / 2
-      const below  = colliders.filter(n => snap[n.id].y >= draggedNode.position.y)
-      const above  = colliders.filter(n => snap[n.id].y <  draggedNode.position.y)
+      // Classify each collider by minimum penetration axis
+      const groups = { up: [], down: [], left: [], right: [] }
+      for (const n of colliders) {
+        const colB    = barrierOf(snap[n.id])
+        const overlapX = Math.min(dragB.x2, colB.x2) - Math.max(dragB.x1, colB.x1)
+        const overlapY = Math.min(dragB.y2, colB.y2) - Math.max(dragB.y1, colB.y1)
+        if (overlapX < overlapY) {
+          // lateral collision — push left or right
+          const dragCX = (dragB.x1 + dragB.x2) / 2
+          const colCX  = (colB.x1  + colB.x2)  / 2
+          groups[colCX >= dragCX ? 'right' : 'left'].push(n)
+        } else {
+          // vertical collision — push up or down
+          const dragCY = (dragB.y1 + dragB.y2) / 2
+          const colCY  = (colB.y1  + colB.y2)  / 2
+          groups[colCY >= dragCY ? 'down' : 'up'].push(n)
+        }
+      }
+
+      const dragW  = homePos.current[draggedNode.id].w ?? NODE_W
+      const dragH  = homePos.current[draggedNode.id].h ?? NODE_H
+      const dragCX = draggedNode.position.x + dragW / 2
+      const dragCY = draggedNode.position.y + dragH / 2
 
       function pushGroup(group, dir) {
         if (!group.length) return
-        const pushBy = Math.max(...group.map(n =>
-          dir === 'down'
-            ? Math.max(0, dragB.y2 + BARRIER_PAD - snap[n.id].y)
-            : Math.max(0, snap[n.id].y + NODE_H - dragB.y1 + BARRIER_PAD)
-        ))
-        const extremeY = dir === 'down'
-          ? Math.min(...group.map(n => snap[n.id].y))
-          : Math.max(...group.map(n => snap[n.id].y))
+        const isHoriz = dir === 'left' || dir === 'right'
+
+        const pushBy = Math.max(...group.map(n => {
+          const s = snap[n.id]
+          if (dir === 'down')  return Math.max(0, dragB.y2 + BARRIER_PAD - s.y)
+          if (dir === 'up')    return Math.max(0, s.y + (s.h ?? NODE_H) - dragB.y1 + BARRIER_PAD)
+          if (dir === 'right') return Math.max(0, dragB.x2 + BARRIER_PAD - s.x)
+          if (dir === 'left')  return Math.max(0, s.x + (s.w ?? NODE_W) - dragB.x1 + BARRIER_PAD)
+        }))
+
+        const extreme = isHoriz
+          ? (dir === 'right' ? Math.min(...group.map(n => snap[n.id].x)) : Math.max(...group.map(n => snap[n.id].x)))
+          : (dir === 'down'  ? Math.min(...group.map(n => snap[n.id].y)) : Math.max(...group.map(n => snap[n.id].y)))
+
         const gIds = new Set(group.map(n => n.id))
         cur.forEach(n => {
           if (SKIP.has(n.id) || gIds.has(n.id) || !snap[n.id]) return
-          if (Math.abs(snap[n.id].x + NODE_W / 2 - dragCX) < NODE_W) {
-            if (dir === 'down' && snap[n.id].y >= extremeY) gIds.add(n.id)
-            if (dir === 'up'   && snap[n.id].y <= extremeY) gIds.add(n.id)
+          const s = snap[n.id]
+          if (isHoriz) {
+            // expand row: same Y band
+            if (Math.abs(s.y + (s.h ?? NODE_H) / 2 - dragCY) < (s.h ?? NODE_H)) {
+              if (dir === 'right' && s.x >= extreme) gIds.add(n.id)
+              if (dir === 'left'  && s.x <= extreme) gIds.add(n.id)
+            }
+          } else {
+            // expand column: same X band
+            if (Math.abs(s.x + (s.w ?? NODE_W) / 2 - dragCX) < (s.w ?? NODE_W)) {
+              if (dir === 'down' && s.y >= extreme) gIds.add(n.id)
+              if (dir === 'up'   && s.y <= extreme) gIds.add(n.id)
+            }
           }
         })
-        const dy = dir === 'down' ? pushBy : -pushBy
+
+        const dx = dir === 'right' ? pushBy : dir === 'left' ? -pushBy : 0
+        const dy = dir === 'down'  ? pushBy : dir === 'up'   ? -pushBy : 0
         cur = cur.map(n => {
           if (!gIds.has(n.id)) return n
-          const newP = { x: snap[n.id].x, y: snap[n.id].y + dy }
-          homePos.current[n.id] = newP   // save permanently so next drag sees correct positions
-          return { ...n, position: newP }
+          const newP = { x: snap[n.id].x + dx, y: snap[n.id].y + dy, w: snap[n.id].w, h: snap[n.id].h }
+          homePos.current[n.id] = newP
+          return { ...n, position: { x: newP.x, y: newP.y } }
         })
       }
 
-      pushGroup(below, 'down')
-      pushGroup(above, 'up')
+      pushGroup(groups.down,  'down')
+      pushGroup(groups.up,    'up')
+      pushGroup(groups.right, 'right')
+      pushGroup(groups.left,  'left')
 
       return cur
     })
@@ -224,17 +296,18 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       data: {
         ...n.data,
         dimmed:      hasActive && !connectedIds.has(n.id),
-        highlighted: hasActive &&  connectedIds.has(n.id) && n.id !== activeNodeId,
+        highlighted: hasActive && connectedIds.has(n.id) && n.id !== activeNodeId,
         isActive:    n.id === activeNodeId,
+        diffStatus:  diffStatusMap ? (diffStatusMap[n.id] ?? null) : null,
         ...(n.type === 'collapsed' && {
           isOpen: n.id === openDropdownId,
           onSelectItem: item => {
-            onDropdownItemClick?.({ id: item.id, label: item.label, type: item.type, sheet: item.sheet })
+            onDropdownItemClick?.({ id: item.id, label: item.label, type: item.type, sheet: item.sheet, stage: item.stage })
           },
         }),
       },
     }))
-  }, [rfNodes, selectedNodeId, activeNodeId, connectedIds, openDropdownId, onDropdownItemClick])
+  }, [rfNodes, selectedNodeId, activeNodeId, connectedIds, openDropdownId, onDropdownItemClick, diffStatusMap])
 
 
   const displayEdges = useMemo(() => {
@@ -315,24 +388,28 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E2E8F0" />
         <Controls showInteractive={false} className="!shadow-md !rounded-lg !border !border-slate-200" />
-        <MiniMap
-          nodeColor={n => {
-            if (n.type === 'operation') return '#88c648'
-            return { source: '#3B82F6', transformation: '#F59E0B', kpi: '#10B981' }[n.data?.type] ?? '#E2E8F0'
-          }}
-          nodeStrokeWidth={0}
-          className="!shadow-md !rounded-lg !border !border-slate-200"
-          pannable zoomable
-        />
-        <div style={{
-          position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-          fontSize: 11, color: '#88c648', pointerEvents: 'none',
-          background: 'var(--accent-pill-bg)', border: '1px solid var(--accent-pill-border)',
-          padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
-          boxShadow: '0 1px 4px rgba(255,115,39,0.12)', fontWeight: 500, zIndex: 10,
-        }}>
-          Right-click an edge to insert an operation step
-        </div>
+        {drawerFullyClosed && (
+          <MiniMap
+            nodeColor={n => {
+              if (n.type === 'operation') return '#88c648'
+              return { source: '#3B82F6', transformation: '#F59E0B', use_case: '#8B5CF6' }[n.data?.type] ?? '#E2E8F0'
+            }}
+            nodeStrokeWidth={0}
+            className="!shadow-md !rounded-lg !border !border-slate-200"
+            pannable zoomable
+          />
+        )}
+        {drawerFullyClosed && (
+          <div style={{
+            position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+            fontSize: 11, color: '#88c648', pointerEvents: 'none',
+            background: 'var(--accent-pill-bg)', border: '1px solid var(--accent-pill-border)',
+            padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+            boxShadow: '0 1px 4px rgba(255,115,39,0.12)', fontWeight: 500, zIndex: 10,
+          }}>
+            Right-click an edge to insert an operation step
+          </div>
+        )}
       </ReactFlow>
 
       {contextMenu && (
@@ -342,6 +419,6 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
   )
 }
 
-export default function LineageGraph(props) {
-  return <ReactFlowProvider><InnerGraph {...props} /></ReactFlowProvider>
+export default function LineageGraph({ diffStatusMap, drawerOpen, ...props }) {
+  return <ReactFlowProvider><InnerGraph {...props} diffStatusMap={diffStatusMap} drawerOpen={drawerOpen} /></ReactFlowProvider>
 }

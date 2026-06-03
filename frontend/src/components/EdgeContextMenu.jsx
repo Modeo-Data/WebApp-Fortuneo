@@ -8,10 +8,10 @@ const OP_ICONS = {
 }
 
 const PLATFORM_GROUPS = [
-  { label: 'Ingestion',     ids: ['airbyte', 'fivetran', 'stitch', 'kafka', 'excel'] },
-  { label: 'Orchestration', ids: ['airflow'] },
-  { label: 'Transform',     ids: ['dbt', 'spark', 'databricks', 'snowflake', 'sql', 'python'] },
-  { label: 'Other',         ids: ['custom'] },
+  { label: 'Ingestion',      ids: ['airbyte', 'fivetran', 'stitch', 'kafka', 'excel'] },
+  { label: 'Orchestration',  ids: ['airflow'] },
+  { label: 'Transformation', ids: ['dbt', 'spark', 'databricks', 'snowflake', 'sql', 'python'] },
+  { label: 'Autre',          ids: ['custom'] },
 ]
 
 export default function EdgeContextMenu({ x, y, onSelect, onClose }) {
@@ -42,7 +42,7 @@ export default function EdgeContextMenu({ x, y, onSelect, onClose }) {
         letterSpacing: '0.08em', color: '#94A3B8',
         borderBottom: '1px solid #F1F5F9',
       }}>
-        Add operation step
+        Ajouter une étape
       </div>
 
       <div style={{ padding: 4, maxHeight: H - 32, overflowY: 'auto' }}>

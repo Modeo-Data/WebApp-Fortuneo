@@ -1,8 +1,14 @@
 import { Handle, Position } from '@xyflow/react'
 import { GitMerge } from 'lucide-react'
 
-const ACCENT      = '#F59E0B'
-const TYPE_COLOR  = '#D97706'
+const ACCENT      = '#88c648'
+const TYPE_COLOR  = '#6aaf35'
+
+const STAGE_COLORS = {
+  staging: { color: '#991b1b', bg: '#fee2e2' },
+  core:    { color: '#9a3412', bg: '#ffedd5' },
+  mart:    { color: '#854d0e', bg: '#fef9c3' },
+}
 const DROPDOWN_W  = 212
 const ITEM_H      = 30
 const MAX_VISIBLE = 7
@@ -10,11 +16,7 @@ const MAX_VISIBLE = 7
 export default function CollapsedNode({ data, selected }) {
   const { dimmed, highlighted, isActive, label = '', items = [], isOpen = false, onSelectItem } = data
 
-  const glowStyle = isActive
-    ? `0 0 0 2px white, 0 0 0 4px ${ACCENT}, 0 4px 20px ${ACCENT}44`
-    : highlighted
-    ? `0 0 0 2px white, 0 0 0 3px ${ACCENT}88`
-    : selected
+  const glowStyle = selected
     ? `0 0 0 2px white, 0 0 0 2px #88c648`
     : '0 1px 4px rgba(0,0,0,0.08)'
 
@@ -51,17 +53,18 @@ export default function CollapsedNode({ data, selected }) {
       {/* Main card */}
       <div style={{
         position: 'relative',
-        background: isActive || highlighted ? 'var(--type-active-transformation)' : 'var(--node-bg)',
+        background: 'var(--node-bg)',
         boxShadow: glowStyle,
         borderRadius: 10,
-        borderTop:    '1px solid var(--node-border)',
-        borderRight:  '1px solid var(--node-border)',
-        borderBottom: '1px solid var(--node-border)',
-        borderLeft:   `3px solid ${ACCENT}`,
-        overflow: 'hidden',
-        transition: 'box-shadow 0.2s ease, background 0.2s ease',
-        padding: '10px 12px 8px 12px',
+        border: (highlighted || isActive)
+          ? `2px solid ${ACCENT}`
+          : `1px solid var(--node-border)`,
+        borderLeft: (highlighted || isActive)
+          ? `2px solid ${ACCENT}`
+          : `3px solid ${ACCENT}`,
+        transition: 'box-shadow 0.2s ease',
       }}>
+        <div style={{ padding: '10px 12px 8px 12px', position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
           <GitMerge size={10} color={TYPE_COLOR} />
           <span style={{
@@ -92,9 +95,10 @@ export default function CollapsedNode({ data, selected }) {
             background: 'var(--type-surface-transformation)',
             padding: '2px 6px', borderRadius: 4,
           }}>
-            {isOpen ? 'Click to collapse' : 'Click to expand'}
+            {isOpen ? 'Réduire' : 'Développer'}
           </span>
         </div>
+        </div>{/* end inner padding wrapper */}
       </div>
 
       {/* Inline dropdown — rendered inside the same RF wrapper so clicks always work */}
@@ -123,7 +127,7 @@ export default function CollapsedNode({ data, selected }) {
         >
           {items.length === 0 && (
             <p style={{ fontSize: 10, color: 'var(--node-count-color)', padding: '8px 10px' }}>
-              No tables
+              Aucune table
             </p>
           )}
           {items.map((item, i) => (
@@ -141,23 +145,25 @@ export default function CollapsedNode({ data, selected }) {
               onMouseEnter={e => e.currentTarget.style.background = 'var(--type-surface-transformation)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
-              <GitMerge size={8} color="#D97706" style={{ flexShrink: 0 }} />
+              <GitMerge size={8} color={STAGE_COLORS[item.stage]?.color ?? '#6aaf35'} style={{ flexShrink: 0 }} />
               <span style={{
                 fontSize: 10, fontWeight: 500, color: 'var(--node-label-color)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
               }}>
                 {item.label ?? item.id}
               </span>
-              {item.sheet && (
-                <span style={{
-                  fontSize: 8, color: 'var(--node-sheet-color)', fontFamily: 'monospace',
-                  background: 'var(--node-sheet-bg)', padding: '1px 3px', borderRadius: 3,
-                  flexShrink: 0, maxWidth: 52,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {item.sheet}
-                </span>
-              )}
+              {item.stage && (() => {
+                const sc = STAGE_COLORS[item.stage]
+                return sc ? (
+                  <span style={{
+                    fontSize: 8, color: sc.color, background: sc.bg,
+                    padding: '1px 4px', borderRadius: 3, flexShrink: 0,
+                    fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>
+                    {item.stage}
+                  </span>
+                ) : null
+              })()}
             </button>
           ))}
         </div>
