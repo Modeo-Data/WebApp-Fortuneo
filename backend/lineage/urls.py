@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UploadView, SessionView, ExplainView, GraphListView, SaveView, GlobalSearchView, CatalogImportView, CatalogNodesView, CatalogGraphView
+from .views import UploadView, SessionView, ExplainView, GraphListView, SaveView, GlobalSearchView, CatalogImportView, CatalogNodesView, CatalogGraphView, ClearAllView
 
 urlpatterns = [
     path('upload/',                       UploadView.as_view(),      name='upload'),
@@ -11,4 +11,5 @@ urlpatterns = [
     path('catalog/import/',               CatalogImportView.as_view(), name='catalog-import'),
     path('catalog/nodes/',                CatalogNodesView.as_view(),  name='catalog-nodes'),
     path('catalog/graph/',                CatalogGraphView.as_view(),  name='catalog-graph'),
+    path('clear/',                        ClearAllView.as_view(),      name='clear-all'),
 ]

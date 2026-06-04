@@ -1,8 +1,6 @@
 import os
 import uuid
 import json as json_lib
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from django.core.cache import cache
 from django.conf import settings
@@ -11,16 +9,8 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 
-from .parsers import parse_excel, merge_graphs
 from .models import SavedGraph, CatalogNode, CatalogEdge
-
-
-@dataclass
-class ParseResult:
-    merged:   dict | None = None
-    mode:     str         = 'json'
-    warnings: list        = field(default_factory=list)
-    error:    str | None  = None
+from .catalog_parser import GraphParser
 
 SESSION_TTL        = 60 * 60 * 24       # 24 h
 SESSIONS_INDEX_KEY = "sessions_index"
@@ -215,121 +205,15 @@ def _register_session(session_id: str, name: str, node_count: int, edge_count: i
 # Views
 # ---------------------------------------------------------------------------
 
-def _parse_single_json_file(f: object) -> tuple[dict | None, str | None, str | None]:
-    """Parse one JSON file into a graph dict.
-
-    Args:
-        f: Django uploaded file object.  Must decode to a JSON object with ``nodes``
-           and ``edges`` list fields.
-
-    Returns:
-        ``(graph, mode, error)`` — on success ``error`` is ``None``; on failure
-        ``graph`` and ``mode`` are ``None`` and ``error`` contains a message.
-    """
-    try:
-        data = json_lib.loads(f.read().decode('utf-8'))
-        if not isinstance(data, dict):
-            raise ValueError(f"{f.name} : le JSON doit être un objet avec 'nodes' et 'edges'.")
-        nodes, edges = data.get('nodes'), data.get('edges')
-        if not isinstance(nodes, list) or not isinstance(edges, list):
-            raise ValueError(f"{f.name} : le JSON doit contenir 'nodes' et 'edges'.")
-        return {'nodes': nodes, 'edges': edges}, data.get('mode', 'json'), None
-    except ValueError as e:
-        return None, None, str(e)
-    except Exception:
-        return None, None, f"{f.name} : JSON invalide."
-
-
-def _parse_single_excel_file(f: object, mode: str) -> tuple[dict | None, str | None, str | None]:
-    """Parse one Excel file into a graph dict.
-
-    Args:
-        f: Django uploaded file object (``.xlsx`` / ``.xls``).
-        mode: Parsing strategy — ``'formula'`` or ``'structured'``.
-
-    Returns:
-        ``(graph, warning, error)`` — ``warning`` and ``error`` are mutually exclusive
-        strings; both are ``None`` on a clean success.
-    """
-    g = parse_excel(f, mode=mode)
-    if '_error' in g:
-        return None, None, f"{f.name} : {g['_error']}"
-    warning = f"{f.name} : {g['_warning']}" if '_warning' in g else None
-    return g, warning, None
-
-
-def _parse_json_files(files: list) -> ParseResult:
-    """Parse a list of JSON files in parallel and merge the resulting graphs.
-
-    Args:
-        files: List of Django uploaded file objects.
-
-    Returns:
-        :class:`ParseResult` with ``merged`` graph and ``mode`` set to the first
-        file's declared mode, or ``error`` set on the first failure encountered.
-    """
-    graphs, mode = [None] * len(files), 'json'
-    with ThreadPoolExecutor() as executor:
-        futures = {executor.submit(_parse_single_json_file, f): i for i, f in enumerate(files)}
-        for future in as_completed(futures):
-            graph, file_mode, error = future.result()
-            if error:
-                return ParseResult(error=error)
-            i = futures[future]
-            if i == 0:
-                mode = file_mode
-            graphs[i] = graph
-    merged = merge_graphs(*graphs) if len(graphs) > 1 else graphs[0]
-    return ParseResult(merged=merged, mode=mode)
-
-
-def _parse_excel_files(files: list, mode: str) -> ParseResult:
-    """Parse a list of Excel files in parallel and merge the resulting graphs.
-
-    Args:
-        files: List of Django uploaded file objects (``.xlsx`` / ``.xls``).
-        mode: Parsing strategy — ``'formula'`` or ``'structured'``.
-
-    Returns:
-        :class:`ParseResult` with ``merged`` graph and accumulated ``warnings``,
-        or ``error`` set on the first failure encountered.
-    """
-    graphs, warnings = [None] * len(files), []
-    with ThreadPoolExecutor() as executor:
-        futures = {executor.submit(_parse_single_excel_file, f, mode): i for i, f in enumerate(files)}
-        for future in as_completed(futures):
-            graph, warning, error = future.result()
-            if error:
-                return ParseResult(error=error)
-            i = futures[future]
-            if warning:
-                warnings.append(warning)
-            graphs[i] = graph
-    merged = merge_graphs(*graphs) if len(graphs) > 1 else graphs[0]
-    return ParseResult(merged=merged, mode=mode, warnings=warnings)
-
-
 class UploadView(APIView):
-    """POST /api/upload/ — parse one or more Excel or JSON files and store the result in cache."""
+    """POST /api/upload/ — parse Excel or JSON files and store the result in cache."""
 
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request: object) -> object:
-        """Accept uploaded files, parse them, and return the new session ID.
-
-        Args:
-            request: DRF ``Request`` with ``multipart/form-data`` body.  Expected fields:
-                - ``file`` (one or more): the files to upload.
-                - ``mode`` (str, optional): ``'formula'`` or ``'structured'`` for Excel files.
-                - ``name`` (str, optional): human-readable graph name.
-
-        Returns:
-            ``200 OK`` with ``{"session_id": "<uuid>"}`` on success, or
-            ``400 Bad Request`` with ``{"error": "..."}`` on failure.
-        """
         files = request.FILES.getlist('file') or request.FILES.getlist('files')
         if not files:
-            return Response({'error': "Aucun fichier fourni."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Aucun fichier fourni.'}, status=status.HTTP_400_BAD_REQUEST)
 
         json_files  = [f for f in files if f.name.endswith('.json')]
         excel_files = [f for f in files if f.name.endswith(('.xlsx', '.xls'))]
@@ -341,35 +225,35 @@ class UploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if json_files and excel_files:
-            return Response(
-                {'error': "Ne mélangez pas les fichiers JSON et Excel."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'error': 'Ne mélangez pas JSON et Excel.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        match 'json' if json_files else 'excel':
-            case 'json':
-                result = _parse_json_files(json_files)
-            case 'excel':
-                raw_mode = request.data.get('mode', 'formula')
-                mode = raw_mode if raw_mode in ('formula', 'structured') else 'formula'
-                result = _parse_excel_files(excel_files, mode)
+        nodes, edges, warnings = [], [], []
 
-        if result.error:
-            return Response({'error': result.error}, status=status.HTTP_400_BAD_REQUEST)
+        if json_files:
+            for f in json_files:
+                try:
+                    data = json_lib.loads(f.read().decode('utf-8'))
+                    nodes.extend(data.get('nodes', []))
+                    edges.extend(data.get('edges', []))
+                except Exception:
+                    return Response({'error': f"{f.name} : JSON invalide."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            for f in excel_files:
+                result = GraphParser(f).parse()
+                if result.error:
+                    return Response({'error': f"{f.name} : {result.error}"}, status=status.HTTP_400_BAD_REQUEST)
+                warnings.extend(result.warnings)
+                nodes.extend({'id': n.node_id, 'label': n.label, 'type': n.node_type} for n in result.nodes)
+                edges.extend({'source': e.source_id, 'target': e.target_id, 'action': e.action} for e in result.edges)
 
-        session_data = {
-            'nodes':      result.merged['nodes'],
-            'edges':      result.merged['edges'],
-            'mode':       result.mode,
-            'file_count': len(files),
-            **(({'warnings': result.warnings}) if result.warnings else {}),
-        }
-
-        session_id = _get_session_id(request)
+        session_id   = _get_session_id(request)
+        session_data = {'nodes': nodes, 'edges': edges, 'mode': 'catalog'}
+        if warnings:
+            session_data['warnings'] = warnings
         _save_session(session_id, session_data)
 
         graph_name = request.data.get('name', '').strip() or ', '.join(f.name for f in files)
-        _register_session(session_id, graph_name, len(result.merged['nodes']), len(result.merged['edges']), result.mode)
+        _register_session(session_id, graph_name, len(nodes), len(edges), 'catalog')
 
         return Response({'session_id': session_id}, headers={'X-Session-ID': session_id})
 
@@ -508,31 +392,59 @@ class CatalogImportView(APIView):
         excel_files = [f for f in files if f.name.endswith(('.xlsx', '.xls'))]
         bad = [f.name for f in files if f not in json_files and f not in excel_files]
         if bad:
-            return Response({'error': f"Format non supporté : {', '.join(bad)}."}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response(
+                {'error': f"Format non supporté : {', '.join(bad)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if json_files and excel_files:
-            return Response({'error': 'Ne mélangez pas JSON et Excel.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Ne mélangez pas JSON et Excel.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        all_nodes, all_edges, all_warnings = [], [], []
 
         if json_files:
-            result = _parse_json_files(json_files)
+            for f in json_files:
+                try:
+                    data = json_lib.loads(f.read().decode('utf-8'))
+                except Exception:
+                    return Response({'error': f"{f.name} : JSON invalide."}, status=status.HTTP_400_BAD_REQUEST)
+                all_nodes.extend([
+                    {'id': n['id'], 'label': n.get('label', ''), 'type': n.get('type', 'unknown'),
+                     'stage': n.get('stage'), 'sheet': n.get('sheet')}
+                    for n in data.get('nodes', [])
+                ])
+                all_edges.extend([
+                    {'source': e['source'], 'target': e['target'], 'action': e.get('action')}
+                    for e in data.get('edges', [])
+                ])
         else:
-            raw_mode = request.data.get('mode', 'formula')
-            mode = raw_mode if raw_mode in ('formula', 'structured') else 'formula'
-            result = _parse_excel_files(excel_files, mode)
-
-        if result.error:
-            return Response({'error': result.error}, status=status.HTTP_400_BAD_REQUEST)
-
-        nodes = result.merged.get('nodes', [])
-        edges = result.merged.get('edges', [])
+            from .catalog_parser import GraphParser
+            for f in excel_files:
+                parser = GraphParser(f)
+                result = parser.parse()
+                if result.error:
+                    return Response({'error': f"{f.name} : {result.error}"}, status=status.HTTP_400_BAD_REQUEST)
+                all_warnings.extend(result.warnings)
+                all_nodes.extend([
+                    {'id': n.node_id, 'label': n.label, 'type': n.node_type,
+                     'stage': None, 'sheet': None}
+                    for n in result.nodes
+                ])
+                all_edges.extend([
+                    {'source': e.source_id, 'target': e.target_id, 'action': e.action}
+                    for e in result.edges
+                ])
 
         added_nodes = updated_nodes = added_edges = 0
-        for n in nodes:
+
+        for n in all_nodes:
             _, created = CatalogNode.objects.update_or_create(
                 node_id=n['id'],
                 defaults={
-                    'label': n.get('label', ''),
-                    'type':  n.get('type', 'source'),
+                    'label': n.get('label') or n['id'],
+                    'type':  n.get('type', 'unknown'),
                     'stage': n.get('stage') or None,
                     'sheet': n.get('sheet') or None,
                 },
@@ -542,22 +454,28 @@ class CatalogImportView(APIView):
             else:
                 updated_nodes += 1
 
-        existing_node_ids = {n['id'] for n in nodes}
-        for e in edges:
-            if e['source'] in existing_node_ids and e['target'] in existing_node_ids:
-                _, created = CatalogEdge.objects.get_or_create(
-                    source_id=e['source'], target_id=e['target'],
-                )
-                if created:
-                    added_edges += 1
+        known_ids = set(CatalogNode.objects.values_list('node_id', flat=True))
+        for e in all_edges:
+            if e['source'] not in known_ids or e['target'] not in known_ids:
+                continue
+            _, created = CatalogEdge.objects.get_or_create(
+                source_id=e['source'],
+                target_id=e['target'],
+                action=e.get('action'),
+            )
+            if created:
+                added_edges += 1
 
-        return Response({
+        response = {
             'added_nodes':   added_nodes,
             'updated_nodes': updated_nodes,
             'added_edges':   added_edges,
             'total_nodes':   CatalogNode.objects.count(),
             'total_edges':   CatalogEdge.objects.count(),
-        })
+        }
+        if all_warnings:
+            response['warnings'] = all_warnings
+        return Response(response)
 
 
 class CatalogNodesView(APIView):
@@ -623,16 +541,29 @@ class CatalogGraphView(APIView):
             for n in catalog_nodes
         ]
         edges = [
-            {'source': e.source_id, 'target': e.target_id}
+            {'source': e.source_id, 'target': e.target_id, 'action': e.action}
             for e in catalog_edges
         ]
 
         session_id = str(uuid.uuid4())
-        payload = {'nodes': nodes, 'edges': edges, 'mode': 'catalog'}
+        payload = {'nodes': nodes, 'edges': edges, 'mode': 'catalog', 'seed_node_id': node_id}
         _save_session(session_id, payload)
         _register_session(session_id, seed.label, len(nodes), len(edges), 'catalog')
 
         return Response({'session_id': session_id, 'node_count': len(nodes), 'edge_count': len(edges)})
+
+
+class ClearAllView(APIView):
+    """DELETE /api/clear/ — wipe catalog (SQLite) + all sessions (Redis)."""
+
+    def delete(self, request):
+        CatalogEdge.objects.all().delete()
+        CatalogNode.objects.all().delete()
+        try:
+            cache.clear()
+        except Exception:
+            pass
+        return Response({'status': 'cleared'})
 
 
 class ExplainView(APIView):
