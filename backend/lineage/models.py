@@ -16,11 +16,12 @@ class SavedGraph(models.Model):
 
 class CatalogNode(models.Model):
     """Persistent registry of every known node across all imported files."""
-    node_id = models.CharField(max_length=500, unique=True, db_index=True)
-    label   = models.CharField(max_length=500)
-    type    = models.CharField(max_length=50)   # feature | component | ingest | compute | virtual | extract | datalake | datawarehouse | ...
-    stage   = models.CharField(max_length=50, null=True, blank=True)
-    sheet   = models.CharField(max_length=200, null=True, blank=True)
+    node_id  = models.CharField(max_length=500, unique=True, db_index=True)
+    label    = models.CharField(max_length=500)
+    type     = models.CharField(max_length=50)   # feature | component | ingest | compute | virtual | extract | datalake | datawarehouse | ...
+    stage    = models.CharField(max_length=50, null=True, blank=True)
+    sheet    = models.CharField(max_length=200, null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)  # format-specific attributes (description, CTE, param, path…)
 
     class Meta:
         ordering = ['label']

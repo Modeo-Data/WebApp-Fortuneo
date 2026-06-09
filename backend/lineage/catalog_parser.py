@@ -7,6 +7,7 @@ class ParsedNode:
     node_id:   str
     label:     str
     node_type: str
+    metadata:  dict = field(default_factory=dict)
 
 
 @dataclass
@@ -62,8 +63,13 @@ class GraphParser:
         error = self._load_workbook()
         if error:
             return CatalogParseResult(error=error)
-        self._build_nodes()
-        self._build_edges()
+
+        if 'nom_sql' in self._col_idx:
+            self._build_wide_format()
+        else:
+            self._build_nodes()
+            self._build_edges()
+
         return CatalogParseResult(
             nodes=list(self._nodes.values()),
             edges=self._edges,
@@ -175,6 +181,101 @@ class GraphParser:
             if dep_id:
                 # Target nodes may not have their own row — infer type from prefix
                 self._upsert_node(dep_id)
+
+    def _build_wide_format(self) -> None:
+        """
+        Wide-format parser: one row = one extract job with multiple inputs and one output.
+
+        Graph built per row
+        ───────────────────
+        [bdd.table] ──read──► [nom_sql] ──write──► [collection] ──part_of──► [component] ──part_of──► [feature]
+        """
+        import re
+        input_indices = sorted({
+            int(m.group(1))
+            for h in self._col_idx
+            if (m := re.match(r'^bdd_d_entree_(\d+)$', h))
+        })
+
+        meta_cols = ['nom_sql', 'job_type', 'fichier_xml', 'path_xml', 'path', 'cte', 'description', 'param', 'writerservice']
+
+        seen_edges: set[tuple] = set()
+
+        for row in self._data:
+            collection_id = self._cell(row, 'nom_collection')
+            if not collection_id:
+                continue
+
+            feature_name   = self._cell(row, 'nom_dossier_feature')
+            component_name = self._cell(row, 'nom_dossier_component')
+
+            # Namespace component under feature to avoid collisions across features
+            component_id = f'{feature_name}/{component_name}' if feature_name and component_name else component_name
+
+            # ── Feature node ──────────────────────────────────────────────────
+            if feature_name and feature_name not in self._nodes:
+                self._nodes[feature_name] = ParsedNode(
+                    node_id=feature_name, label=feature_name, node_type='feature',
+                )
+
+            # ── Component node + edge from feature ────────────────────────────
+            if component_id:
+                if component_id not in self._nodes:
+                    self._nodes[component_id] = ParsedNode(
+                        node_id=component_id, label=component_name or component_id,
+                        node_type='component',
+                        metadata={'feature': feature_name} if feature_name else {},
+                    )
+                if feature_name:
+                    key = (feature_name, component_id, 'calls')
+                    if key not in seen_edges:
+                        seen_edges.add(key)
+                        self._edges.append(ParsedEdge(source_id=feature_name, target_id=component_id, action='calls'))
+
+            # ── Collection node (= extract job) + edge from component ─────────
+            # nom_sql, fichier_xml, etc. are stored as metadata on the collection
+            meta = {k: self._cell(row, k) for k in meta_cols if self._cell(row, k)}
+            self._nodes[collection_id] = ParsedNode(
+                node_id=collection_id, label=collection_id, node_type='collection', metadata=meta,
+            )
+            if component_id:
+                key = (component_id, collection_id, 'calls')
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    self._edges.append(ParsedEdge(source_id=component_id, target_id=collection_id, action='calls'))
+
+            # ── Input table nodes + read edges into collection ────────────────
+            for idx in input_indices:
+                bdd   = self._cell(row, f'bdd_d_entree_{idx}')
+                table = self._cell(row, f'table_d_entree_{idx}')
+                if not bdd or not table:
+                    continue
+
+                table_id = f'{bdd}.{table}'
+                if table_id not in self._nodes:
+                    self._nodes[table_id] = ParsedNode(
+                        node_id=table_id, label=table, node_type='datalake', metadata={'bdd': bdd},
+                    )
+
+                key = (table_id, collection_id, 'read')
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    self._edges.append(ParsedEdge(source_id=table_id, target_id=collection_id, action='read'))
+
+            # ── Output node from writerService prefix ─────────────────────────
+            writer = self._cell(row, 'writerservice')
+            if writer:
+                prefix = writer.split('_')[0].lower()
+                KNOWN_PREFIXES = {'edd', 'edeal19', 'dmcg', 'ods'}
+                if prefix in KNOWN_PREFIXES:
+                    if prefix not in self._nodes:
+                        self._nodes[prefix] = ParsedNode(
+                            node_id=prefix, label=prefix.upper(), node_type='datawarehouse',
+                        )
+                    key = (collection_id, prefix, 'write')
+                    if key not in seen_edges:
+                        seen_edges.add(key)
+                        self._edges.append(ParsedEdge(source_id=collection_id, target_id=prefix, action='write'))
 
     def _build_edges(self) -> None:
         cc = self.ColConfig

@@ -1,9 +1,10 @@
-import os
+import hashlib
 import uuid
 import json as json_lib
 from datetime import datetime, timezone
 from django.core.cache import cache
 from django.conf import settings
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -86,7 +87,7 @@ def _call_claude(node: dict, lineage_text: str) -> str:
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key, timeout=30.0)
 
         prompt = f"""Tu es un expert en data lineage et reporting financier.
 
@@ -429,7 +430,7 @@ class CatalogImportView(APIView):
                 all_warnings.extend(result.warnings)
                 all_nodes.extend([
                     {'id': n.node_id, 'label': n.label, 'type': n.node_type,
-                     'stage': None, 'sheet': None}
+                     'metadata': n.metadata, 'stage': None, 'sheet': None}
                     for n in result.nodes
                 ])
                 all_edges.extend([
@@ -437,34 +438,42 @@ class CatalogImportView(APIView):
                     for e in result.edges
                 ])
 
-        added_nodes = updated_nodes = added_edges = 0
+        with transaction.atomic():
+            incoming_ids = [n['id'] for n in all_nodes]
+            existing_objs = {
+                n.node_id: n
+                for n in CatalogNode.objects.filter(node_id__in=incoming_ids)
+            }
+            existing_ids = set(existing_objs)
 
-        for n in all_nodes:
-            _, created = CatalogNode.objects.update_or_create(
-                node_id=n['id'],
-                defaults={
-                    'label': n.get('label') or n['id'],
-                    'type':  n.get('type', 'unknown'),
-                    'stage': n.get('stage') or None,
-                    'sheet': n.get('sheet') or None,
-                },
-            )
-            if created:
-                added_nodes += 1
-            else:
-                updated_nodes += 1
+            to_create, to_update = [], []
+            for n in all_nodes:
+                label = n.get('label') or n['id']
+                typ   = n.get('type', 'unknown')
+                stage = n.get('stage') or None
+                sheet = n.get('sheet') or None
+                if n['id'] in existing_ids:
+                    obj = existing_objs[n['id']]
+                    obj.label, obj.type, obj.stage, obj.sheet, obj.metadata = label, typ, stage, sheet, n.get('metadata') or {}
+                    to_update.append(obj)
+                else:
+                    to_create.append(CatalogNode(node_id=n['id'], label=label, type=typ, stage=stage, sheet=sheet, metadata=n.get('metadata') or {}))
 
-        known_ids = set(CatalogNode.objects.values_list('node_id', flat=True))
-        for e in all_edges:
-            if e['source'] not in known_ids or e['target'] not in known_ids:
-                continue
-            _, created = CatalogEdge.objects.get_or_create(
-                source_id=e['source'],
-                target_id=e['target'],
-                action=e.get('action'),
-            )
-            if created:
-                added_edges += 1
+            CatalogNode.objects.bulk_create(to_create)
+            if to_update:
+                CatalogNode.objects.bulk_update(to_update, ['label', 'type', 'stage', 'sheet', 'metadata'])
+
+            added_nodes   = len(to_create)
+            updated_nodes = len(to_update)
+
+            known_ids = existing_ids | {n.node_id for n in to_create}
+            edge_objs = [
+                CatalogEdge(source_id=e['source'], target_id=e['target'], action=e.get('action'))
+                for e in all_edges
+                if e['source'] in known_ids and e['target'] in known_ids
+            ]
+            created_edges = CatalogEdge.objects.bulk_create(edge_objs, ignore_conflicts=True)
+            added_edges = sum(1 for e in created_edges if e.pk is not None)
 
         response = {
             'added_nodes':   added_nodes,
@@ -489,7 +498,7 @@ class CatalogNodesView(APIView):
             qs = qs.filter(type=typ)
         if q:
             qs = qs.filter(label__icontains=q)
-        nodes = list(qs.values('node_id', 'label', 'type', 'stage', 'sheet')[:200])
+        nodes = list(qs.values('node_id', 'label', 'type', 'stage', 'sheet', 'metadata')[:200])
         total = CatalogNode.objects.count()
         return Response({'nodes': nodes, 'total': total})
 
@@ -501,33 +510,58 @@ class CatalogGraphView(APIView):
 
     def post(self, request):
         node_id = request.data.get('node_id', '').strip()
+
+        # No node_id → return the full catalog as a session
         if not node_id:
-            return Response({'error': 'node_id requis.'}, status=status.HTTP_400_BAD_REQUEST)
+            catalog_nodes = CatalogNode.objects.all()
+            catalog_edges = CatalogEdge.objects.all()
+            nodes = [
+                {'id': n.node_id, 'label': n.label, 'type': n.type,
+                 'stage': n.stage, 'sheet': n.sheet, 'metadata': n.metadata}
+                for n in catalog_nodes
+            ]
+            edges = [
+                {'source': e.source_id, 'target': e.target_id, 'action': e.action}
+                for e in catalog_edges
+            ]
+            session_id = str(uuid.uuid4())
+            payload = {'nodes': nodes, 'edges': edges, 'mode': 'catalog'}
+            _save_session(session_id, payload)
+            _register_session(session_id, 'Catalogue complet', len(nodes), len(edges), 'catalog')
+            return Response({'session_id': session_id, 'node_count': len(nodes), 'edge_count': len(edges)})
 
         try:
             seed = CatalogNode.objects.get(node_id=node_id)
         except CatalogNode.DoesNotExist:
             return Response({'error': f'Nœud "{node_id}" introuvable dans le catalogue.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Load all edges once, build adjacency maps for BFS
+        all_edges_qs = CatalogEdge.objects.values_list('source_id', 'target_id')
+        by_target: dict[str, list] = {}
+        by_source: dict[str, list] = {}
+        for src, tgt in all_edges_qs:
+            by_target.setdefault(tgt, []).append(src)
+            by_source.setdefault(src, []).append(tgt)
+
         # BFS upstream (ancestors)
-        upstream = set()
+        upstream: set[str] = set()
         queue = [node_id]
         while queue:
             cur = queue.pop()
-            for e in CatalogEdge.objects.filter(target_id=cur).values_list('source_id', flat=True):
-                if e not in upstream:
-                    upstream.add(e)
-                    queue.append(e)
+            for src in by_target.get(cur, []):
+                if src not in upstream:
+                    upstream.add(src)
+                    queue.append(src)
 
         # BFS downstream (descendants)
-        downstream = set()
+        downstream: set[str] = set()
         queue = [node_id]
         while queue:
             cur = queue.pop()
-            for e in CatalogEdge.objects.filter(source_id=cur).values_list('target_id', flat=True):
-                if e not in downstream:
-                    downstream.add(e)
-                    queue.append(e)
+            for tgt in by_source.get(cur, []):
+                if tgt not in downstream:
+                    downstream.add(tgt)
+                    queue.append(tgt)
 
         relevant_ids = upstream | downstream | {node_id}
         catalog_nodes = CatalogNode.objects.filter(node_id__in=relevant_ids)
@@ -537,7 +571,7 @@ class CatalogGraphView(APIView):
 
         nodes = [
             {'id': n.node_id, 'label': n.label, 'type': n.type,
-             'stage': n.stage, 'sheet': n.sheet}
+             'stage': n.stage, 'sheet': n.sheet, 'metadata': n.metadata}
             for n in catalog_nodes
         ]
         edges = [
@@ -609,7 +643,18 @@ class ExplainView(APIView):
         node = node_map[node_id]
         subgraph = _build_ancestor_subgraph(node_id, nodes, edges)
         lineage_text = _format_lineage_for_prompt(node_id, subgraph)
+
+        lineage_hash = hashlib.md5(lineage_text.encode()).hexdigest()
+        explain_key = f"explain:{node_id}:{lineage_hash}"
+        cached_explanation = cache.get(explain_key)
+        if cached_explanation:
+            return Response({'node_id': node_id, 'explanation': cached_explanation, 'lineage_used': lineage_text})
+
         explanation = _call_claude(node, lineage_text)
+        try:
+            cache.set(explain_key, explanation, timeout=60 * 60 * 24)
+        except Exception:
+            pass
 
         return Response({
             'node_id': node_id,
