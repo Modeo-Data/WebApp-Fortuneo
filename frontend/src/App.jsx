@@ -9,6 +9,9 @@ function parsePath(pathname, search = '') {
     const params = new URLSearchParams(search)
     return { page: 'graph', sessionId: m[1], nodeId: params.get('node') || null }
   }
+  if (pathname === '/graph') {
+    return { page: 'graph', sessionId: null, nodeId: null }
+  }
   return { page: 'home' }
 }
 

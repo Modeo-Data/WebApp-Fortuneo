@@ -1,49 +1,51 @@
 import { Handle, Position } from '@xyflow/react'
-import { Database, GitMerge, LayoutDashboard } from 'lucide-react'
+import {
+  Database, GitMerge, LayoutDashboard, GitBranch,
+  Cpu, Layers, ArrowUpFromLine, Box, HardDrive,
+} from 'lucide-react'
+import { getNodeColor, getNodeLabel } from '../lib/nodeTypes.js'
 
-const TYPE_CONFIG = {
-  source: {
-    icon: Database, label: 'Source',
-    accent: '#3B82F6', typeColor: '#2563EB',
-    accentBg: 'var(--type-surface-source)',
-  },
-  transformation: {
-    icon: GitMerge, label: 'Transformation',
-    accent: '#D97706', typeColor: '#92400E',
-    accentBg: 'var(--type-surface-transformation)',
-  },
-  use_case: {
-    icon: LayoutDashboard, label: 'Use Case',
-    accent: '#8B5CF6', typeColor: '#7C3AED',
-    accentBg: 'var(--type-surface-use_case)',
-  },
+// Icons per type — extend here when new types arrive
+const TYPE_ICONS = {
+  source:        Database,
+  feature:       Layers,
+  component:     Box,
+  ingest:        HardDrive,
+  compute:       Cpu,
+  virtual:       GitMerge,
+  extract:       ArrowUpFromLine,
+  transformation:GitMerge,
+  use_case:      LayoutDashboard,
 }
 
-// dbt stage → visual override on transformation nodes
-const STAGE_CFG = {
-  staging: { accent: '#dc2626', typeColor: '#991b1b', label: 'Staging' },
-  core:    { accent: '#ea580c', typeColor: '#9a3412', label: 'Core' },
-  mart:    { accent: '#eab308', typeColor: '#854d0e', label: 'Mart' },
-}
+const FALLBACK_ICON = GitBranch
 
-const FALLBACK = TYPE_CONFIG.source
+const JOB_TYPE_COLOR = {
+  extract:  '#2563eb',
+  virtual:  '#8b5cf6',
+  ingest:   '#d97706',
+  compute:  '#16a34a',
+}
 
 export default function CustomNode({ data, selected }) {
-  const base = TYPE_CONFIG[data.type] ?? FALLBACK
-  const stage = data.stage ? (STAGE_CFG[data.stage] ?? null) : null
+  const { type, stage, sheet, label, metadata,
+          dimmed, highlighted, isActive, insightTarget,
+          upstreamCount = 0, downstreamCount = 0,
+          diffStatus } = data
 
-  const accent    = stage?.accent    ?? base.accent
-  const typeColor = stage?.typeColor ?? base.typeColor
-  const typeLabel = stage?.label     ?? base.label
-  const Icon      = base.icon
+  const jobType = type === 'collection' ? (metadata?.job_type ?? null) : null
 
-  const { dimmed, highlighted, isActive, upstreamCount = 0, downstreamCount = 0, diffStatus } = data
+  const accent    = getNodeColor(type)
+  const typeLabel = getNodeLabel(type)
+  const Icon      = TYPE_ICONS[type] ?? FALLBACK_ICON
 
-  const diffBorderColor = diffStatus === 'added' ? '#16a34a'
-    : diffStatus === 'changed' ? '#d97706'
-    : null
+  const diffBorderColor = diffStatus === 'added'   ? '#16a34a'
+                        : diffStatus === 'changed' ? '#d97706'
+                        : null
 
-  const glowStyle = diffStatus === 'added'
+  const glowStyle = insightTarget
+    ? `0 0 0 2px white, 0 0 0 4px ${accent}, 0 0 12px ${accent}55`
+    : diffStatus === 'added'
     ? `0 0 0 2px white, 0 0 0 4px #16a34a`
     : diffStatus === 'changed'
     ? `0 0 0 2px white, 0 0 0 4px #d97706`
@@ -52,42 +54,32 @@ export default function CustomNode({ data, selected }) {
     : '0 1px 4px rgba(0,0,0,0.08)'
 
   return (
-    <div
-      style={{
-        opacity: dimmed ? 0.18 : 1,
-        transform: isActive ? 'scale(1.06)' : highlighted ? 'scale(1.03)' : 'scale(1)',
-        boxShadow: glowStyle,
-        background: 'var(--node-bg)',
-        position: 'relative',
-        transition: 'opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
-        minWidth: 200,
-        maxWidth: 240,
-        borderRadius: 10,
-        border: (highlighted || isActive)
-          ? `2px solid ${accent}`
-          : `1px solid var(--node-border)`,
-        borderLeft: (highlighted || isActive)
-          ? `2px solid ${accent}`
-          : `3px solid ${diffBorderColor ?? accent}`,
-        cursor: 'pointer',
-      }}
-    >
+    <div style={{
+      opacity:    dimmed ? 0.30 : 1,
+      transform:  isActive ? 'scale(1.06)' : highlighted ? 'scale(1.03)' : 'scale(1)',
+      boxShadow:  dimmed ? 'var(--dimmed-node-glow)' : glowStyle,
+      background: 'var(--node-bg)',
+      position:   'relative',
+      transition: 'opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
+      minWidth:   200,
+      maxWidth:   240,
+      borderRadius: 10,
+      border:     (highlighted || isActive || insightTarget)
+        ? `2px solid ${accent}`
+        : `1px solid var(--node-border)`,
+      borderLeft: (highlighted || isActive || insightTarget)
+        ? `2px solid ${accent}`
+        : `3px solid ${diffBorderColor ?? accent}`,
+      cursor: 'pointer',
+    }}>
 
-      {/* Handles */}
-      {data.type !== 'source' && (
-        <Handle type="target" position={Position.Left}
-          style={{ background: accent, width: 8, height: 8, border: '2px solid white', left: -1 }} />
-      )}
-      {data.type !== 'use_case' && (
-        <Handle type="source" position={Position.Right}
-          style={{ background: accent, width: 8, height: 8, border: '2px solid white', right: -1 }} />
-      )}
+      <Handle type="target" position={Position.Left} style={{ opacity: 0, width: 8, height: 8, left: -1 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0, width: 8, height: 8, right: -1 }} />
 
-      <div style={{ padding: '10px 12px 8px 12px', position: 'relative' }}>
+      <div style={{ padding: '10px 12px 8px 12px' }}>
         {/* Icon badge + sheet */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {/* Colored icon badge */}
             <div style={{
               width: 22, height: 22, borderRadius: 6, flexShrink: 0,
               background: diffBorderColor ?? accent,
@@ -95,35 +87,42 @@ export default function CustomNode({ data, selected }) {
             }}>
               <Icon size={12} color="white" />
             </div>
-            <span style={{
-              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-              color: typeColor,
-            }}>
-              {typeLabel}
+            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: accent }}>
+              {stage ?? typeLabel}
             </span>
           </div>
-          {data.sheet && (
+          {jobType && (
+            <span style={{
+              fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+              color: JOB_TYPE_COLOR[jobType] ?? '#64748b',
+              background: `${JOB_TYPE_COLOR[jobType] ?? '#64748b'}18`,
+              padding: '1px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+            }}>
+              {jobType}
+            </span>
+          )}
+          {!jobType && sheet && (
             <span style={{
               fontSize: 9, color: 'var(--node-sheet-color)', fontFamily: 'monospace',
               background: 'var(--node-sheet-bg)', padding: '1px 5px', borderRadius: 4,
               maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              {data.sheet}
+              {sheet}
             </span>
           )}
         </div>
 
-        {/* Node label */}
+        {/* Label */}
         <p style={{
           fontSize: 13, fontWeight: 600, color: 'var(--node-label-color)',
           lineHeight: 1.3, marginBottom: 8,
           overflow: 'hidden', textOverflow: 'ellipsis',
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
         }}>
-          {data.label}
+          {label}
         </p>
 
-        {/* Dependency counts */}
+        {/* Counts */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           borderTop: '1px solid var(--node-divider)', paddingTop: 6,

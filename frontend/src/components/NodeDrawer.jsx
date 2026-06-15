@@ -1,34 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
-import { Database, GitMerge, LayoutDashboard, ChevronRight, ArrowRight, Sparkles, Loader2, MousePointerClick } from 'lucide-react'
+import { Database, GitMerge, LayoutDashboard, ChevronRight, ArrowRight, Sparkles, Loader2, FileCode2, FileJson, AlignLeft, Lightbulb } from 'lucide-react'
 import axios from 'axios'
 import { usePanelNav } from '../hooks/usePanelNav.js'
+import InsightsPanel from './InsightsPanel.jsx'
 
 // usePanelNav is kept solely for gesture interception (trackpad, keyboard, mouse buttons).
 // Navigation state (canGoBack) is driven externally via props so it stays in sync with
 // the browser's own history stack.
 
+function _cfg(icon, label, accent, darker) {
+  return {
+    icon, label, accent,
+    accentBg: `${accent}12`,
+    chipStyle:   { background: `${accent}10`, borderColor: `${accent}40`, color: accent },
+    tabStyle:    { background: darker },
+    tabHover:    accent,
+    headerStyle: { background: darker, color: 'white' },
+  }
+}
+
 const TYPE_CONFIG = {
-  source: {
-    icon: Database, label: 'Source',
-    accent: '#2563EB', accentBg: 'var(--type-surface-source)',
-    chipClass: 'bg-blue-50 border-blue-200 text-blue-700',
-    tabClass: 'bg-blue-600 hover:bg-blue-700',
-    headerStyle: { background: '#1D4ED8', color: 'white' },
-  },
-  transformation: {
-    icon: GitMerge, label: 'Transformation',
-    accent: '#D97706', accentBg: 'var(--type-surface-transformation)',
-    chipClass: 'bg-amber-50 border-amber-200 text-amber-700',
-    tabClass: 'bg-amber-600 hover:bg-amber-700',
-    headerStyle: { background: '#B45309', color: 'white' },
-  },
-  use_case: {
-    icon: LayoutDashboard, label: 'Use Case',
-    accent: '#8b5cf6', accentBg: 'var(--type-surface-use_case)',
-    chipClass: 'bg-violet-50 border-violet-200 text-violet-700',
-    tabClass: 'bg-violet-600 hover:bg-violet-700',
-    headerStyle: { background: '#6D28D9', color: 'white' },
-  },
+  feature:        _cfg(Database,        'Feature',        '#88c648', '#5a8a1e'),
+  component:      _cfg(Database,        'Component',      '#8b5cf6', '#6D28D9'),
+  collection:     _cfg(GitMerge,        'Collection',     '#d97706', '#B45309'),
+  datalake:       _cfg(Database,        'Data Lake',      '#ec4899', '#be185d'),
+  datawarehouse:  _cfg(Database,        'Data Warehouse', '#14b8a6', '#0f766e'),
+  ingest:         _cfg(GitMerge,        'Ingest',         '#2563eb', '#1D4ED8'),
+  compute:        _cfg(GitMerge,        'Compute',        '#d97706', '#B45309'),
+  virtual:        _cfg(GitMerge,        'Virtual',        '#06b6d4', '#0e7490'),
+  extract:        _cfg(GitMerge,        'Extract',        '#10b981', '#047857'),
+  source:         _cfg(Database,        'Source',         '#2563eb', '#1D4ED8'),
+  transformation: _cfg(GitMerge,        'Transformation', '#d97706', '#B45309'),
+  use_case:       _cfg(LayoutDashboard, 'Dashboard',      '#8b5cf6', '#6D28D9'),
 }
 
 // dbt stage overrides for transformation nodes
@@ -45,9 +48,9 @@ function NodeChip({ node, onClick }) {
   const Icon = cfg.icon
   return (
     <button onClick={() => onClick(node)}
-      className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-xs font-medium w-full text-left
-        ${cfg.chipClass} transition-all hover:shadow-sm hover:translate-x-0.5`}>
-      <Icon size={11} className="shrink-0" />
+      className="flex items-center gap-2 px-2.5 py-2 rounded-lg border text-xs font-medium w-full text-left transition-all hover:shadow-sm hover:translate-x-0.5"
+      style={cfg.chipStyle}>
+      <Icon size={11} className="shrink-0" style={{ color: cfg.accent }} />
       <div className="min-w-0">
         <span className="block truncate font-semibold">{node.label}</span>
         {node.sheet && <span className="text-[10px] opacity-60 font-mono">{node.sheet}</span>}
@@ -56,7 +59,7 @@ function NodeChip({ node, onClick }) {
   )
 }
 
-export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOverride, isRemovedNode, onClose, onNavigate, sessionId, isOpen }) {
+export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOverride, isRemovedNode, onClose, onNavigate, onHighlight, onOpenSuggestions, onCloseSuggestions, showSuggestions, sessionId, isOpen }) {
   const cfg = TYPE_CONFIG[node?.type] ?? FALLBACK
   const Icon = cfg.icon
   const isUseCase = node?.type === 'use_case'
@@ -136,16 +139,37 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
       {/* Languette — peeks out over the canvas left edge */}
       {isOpen && (
         <button onClick={onClose} aria-label="Fermer"
-          className={`absolute -left-7 top-1/2 -translate-y-1/2 w-7 h-16 rounded-l-xl z-10
+          className="absolute -left-7 top-1/2 -translate-y-1/2 w-7 h-16 rounded-l-xl z-10
             flex items-center justify-center text-white shadow-lg
-            transition-all duration-150 hover:-left-8 hover:w-8 ${node ? cfg.tabClass : 'bg-slate-400 hover:bg-slate-500'}`}>
+            transition-all duration-150 hover:-left-8 hover:w-8"
+          style={node ? cfg.tabStyle : { background: '#94a3b8' }}>
           <ChevronRight size={16} strokeWidth={2.5} />
         </button>
       )}
       {/* Fixed-width inner wrapper so content never reflows during the width animation */}
       <div className="w-[340px] flex flex-col h-full">
 
-      {node ? (
+      {showSuggestions ? (
+        <>
+          {/* ── Suggestions panel ────────────────────────────────────────────── */}
+          <div className="px-4 py-3 shrink-0 border-b border-slate-200 flex items-center gap-2"
+            style={{ background: '#fef3c7' }}>
+            <button onClick={onCloseSuggestions}
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-colors"
+              style={{ color: '#92400e' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+            </button>
+            <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#92400e' }}>
+              Suggestions
+            </p>
+          </div>
+          <InsightsPanel onHighlight={onHighlight} />
+        </>
+
+      ) : node ? (
         <>
           {/* ── Header (node selected) ───────────────────────────────────────── */}
           <div style={headerStyle} className="px-5 py-4 shrink-0">
@@ -235,6 +259,35 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
               </div>
             </div>
 
+            {node?.type === 'collection' && node?.metadata && (
+              <div className="mx-4 mb-3 flex flex-col gap-2">
+                {node.metadata.nom_sql && (
+                  <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-search-bg)' }}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <FileCode2 size={11} className="text-slate-400 shrink-0" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Script SQL</span>
+                    </div>
+                    <code className="text-[11px] font-mono text-slate-600 break-all">{node.metadata.nom_sql}</code>
+                    {node.metadata.fichier_xml && (
+                      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t" style={{ borderColor: 'var(--hp-border)' }}>
+                        <FileJson size={11} className="text-slate-400 shrink-0" />
+                        <code className="text-[11px] font-mono text-slate-500 break-all">{node.metadata.fichier_xml}</code>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {node.metadata.description && (
+                  <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-search-bg)' }}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AlignLeft size={11} className="text-slate-400 shrink-0" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Description</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">{node.metadata.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {isUseCase && (
               <div className="mx-4 mb-4 rounded-xl overflow-hidden"
                 style={{ border: '1px solid var(--claude-border)', background: 'var(--claude-bg)' }}>
@@ -266,29 +319,43 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
             )}
           </div>
 
-          {/* ── Footer (node selected) ───────────────────────────────────────── */}
-          <div className="border-t border-slate-200 px-5 py-2 bg-slate-100 shrink-0 flex items-center justify-between">
-            <p className="text-[10px] text-slate-400 font-mono truncate">{node.id}</p>
-            <span className="text-[10px] font-semibold shrink-0 ml-2" style={{ color: '#88c648' }}>nexus-explorer</span>
+          {/* ── Footer (node selected) with lightbulb button ─────────────────── */}
+          <div className="border-t border-slate-200 px-3 py-2 bg-slate-100 shrink-0 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 font-mono truncate flex-1 mr-2">{node.id}</p>
+            <button onClick={onOpenSuggestions} title="Suggestions"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
+              style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fef3c7'}>
+              <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+            </button>
           </div>
         </>
+
       ) : (
         <>
-          {/* ── Placeholder (no node selected) ───────────────────────────────── */}
-          <div className="px-5 py-4 shrink-0 border-b border-slate-200"
+          {/* ── Placeholder (no node selected) — lightbulb on top ────────────── */}
+          <div className="px-5 py-4 shrink-0 border-b border-slate-200 flex items-center justify-between"
             style={{ background: 'var(--hp-header-bg)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--hp-text-muted, #94a3b8)' }}>
               Détails du nœud
             </p>
+            <button onClick={onOpenSuggestions} title="Suggestions"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
+              style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fef3c7'}>
+              <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+            </button>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-              <MousePointerClick size={22} className="text-slate-300" />
+              <Lightbulb size={22} className="text-slate-300" />
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-500 mb-1.5">Aucun nœud sélectionné</p>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Cliquez sur un nœud du graphe ou choisissez une source dans le panneau de gauche.
+                Cliquez sur un nœud du graphe ou utilisez le panneau de gauche.
               </p>
             </div>
           </div>

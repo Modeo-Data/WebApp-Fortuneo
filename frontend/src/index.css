@@ -54,6 +54,9 @@
   --claude-bg:     #F5F2FF;
   --claude-border: #D4C8FC;
 
+  /* Dimmed (non-connected) node glow — black halo in light mode */
+  --dimmed-node-glow: 0 0 6px 3px rgba(0,0,0,0.55), 0 0 14px 6px rgba(0,0,0,0.20), 0 0 24px 10px rgba(0,0,0,0.06);
+
   /* Accent pill (focused node, hint, selected letter) */
   --accent-pill-bg:     rgba(136,198,72,0.08);
   --accent-pill-border: rgba(136,198,72,0.2);
@@ -122,6 +125,9 @@
   /* Claude / AI section */
   --claude-bg:     #231545;
   --claude-border: #4c2d8a;
+
+  /* Dimmed (non-connected) node glow — white halo in dark mode */
+  --dimmed-node-glow: 0 0 6px 3px rgba(255,255,255,0.55), 0 0 14px 6px rgba(255,255,255,0.20), 0 0 24px 10px rgba(255,255,255,0.06);
 
   /* Accent pill */
   --accent-pill-bg:     #1a2e0d;
@@ -527,6 +533,9 @@ body.page-graph #root {
 .tc-mark.source         { background: var(--type-surface-source);         color: #2563eb; }
 .tc-mark.transformation { background: var(--type-surface-transformation); color: #d97706; }
 .tc-mark.use_case       { background: var(--type-surface-use_case);       color: #7c3aed; }
+.tc-mark.feature        { background: rgba(136,198,72,.15);  color: #88c648; }
+.tc-mark.component      { background: rgba(139,92,246,.15);  color: #8b5cf6; }
+.tc-mark.transfo        { background: rgba(217,119,6,.15);   color: #d97706; }
 
 /* Checked — solid color + gradient glow */
 .tc-wrap input:checked ~ .tc-mark { color: white; }
@@ -536,6 +545,18 @@ body.page-graph #root {
   box-shadow: 0 0 4px 2px rgba(37,99,235,.55), 0 0 8px 4px rgba(37,99,235,.2), 0 0 12px 5px rgba(37,99,235,.06);
 }
 .tc-wrap input:checked ~ .tc-mark.transformation {
+  background: #d97706;
+  box-shadow: 0 0 4px 2px rgba(217,119,6,.55), 0 0 8px 4px rgba(217,119,6,.2), 0 0 12px 5px rgba(217,119,6,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.feature {
+  background: #88c648;
+  box-shadow: 0 0 4px 2px rgba(136,198,72,.55), 0 0 8px 4px rgba(136,198,72,.2), 0 0 12px 5px rgba(136,198,72,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.component {
+  background: #8b5cf6;
+  box-shadow: 0 0 4px 2px rgba(139,92,246,.55), 0 0 8px 4px rgba(139,92,246,.2), 0 0 12px 5px rgba(139,92,246,.06);
+}
+.tc-wrap input:checked ~ .tc-mark.transfo {
   background: #d97706;
   box-shadow: 0 0 4px 2px rgba(217,119,6,.55), 0 0 8px 4px rgba(217,119,6,.2), 0 0 12px 5px rgba(217,119,6,.06);
 }

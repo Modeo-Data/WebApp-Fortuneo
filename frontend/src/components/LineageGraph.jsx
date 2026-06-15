@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useEffect, useState, useRef } from 'react'
 import {
-  ReactFlow, Background, Controls, MiniMap,
+  ReactFlow, Background, Controls, MiniMap, Panel,
   MarkerType,
   useNodesState, useEdgesState, BackgroundVariant,
   useReactFlow, ReactFlowProvider,
@@ -8,9 +8,12 @@ import {
 import CustomNode from './CustomNode.jsx'
 import OperationNode from './OperationNode.jsx'
 import CollapsedNode from './CollapsedNode.jsx'
+import StorageNode from './StorageNode.jsx'
 import BeltEdge from './BeltEdge.jsx'
+import SpreadEdge from './SpreadEdge.jsx'
 import EdgeContextMenu from './EdgeContextMenu.jsx'
 import { buildGraph, getConnectedIds } from '../lib/graphUtils.js'
+import { getNodeColor } from '../lib/nodeTypes.js'
 
 const NODE_H      = 80
 const NODE_W      = 240
@@ -20,8 +23,9 @@ const nodeTypes = {
   custom: CustomNode,
   operation: OperationNode,
   collapsed: CollapsedNode,
+  storage: StorageNode,
 }
-const edgeTypes = { belt: BeltEdge }
+const edgeTypes = { belt: BeltEdge, spread: SpreadEdge }
 
 // ── AABB helpers ───────────────────────────────────────────────────────────────
 function barrierOf(snap) {
@@ -40,7 +44,7 @@ function overlaps(a, b) {
 }
 
 // ── InnerGraph ─────────────────────────────────────────────────────────────────
-function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClick, selectedNodeId, diffStatusMap, drawerOpen }) {
+function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClick, selectedNodeId, insightIds, diffStatusMap, drawerOpen }) {
   const { screenToFlowPosition, fitView } = useReactFlow()
 
   // Delay "show" until closing animation (300ms) completes, hide immediately on open
@@ -54,9 +58,9 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
     }
   }, [drawerOpen])
 
-  const init = useMemo(() => buildGraph(nodes, edges), []) // eslint-disable-line
-  const [rfNodes, setNodes, onNodesChange] = useNodesState(init.rfNodes)
-  const [rfEdges, setEdges, onEdgesChange] = useEdgesState(init.rfEdges)
+  const init = useRef(buildGraph(nodes, edges))
+  const [rfNodes, setNodes, onNodesChange] = useNodesState(init.current.rfNodes)
+  const [rfEdges, setEdges, onEdgesChange] = useEdgesState(init.current.rfEdges)
   const [activeNodeId,   setActiveNodeId]   = useState(null)
   const [openDropdownId, setOpenDropdownId] = useState(null)
   const [contextMenu,    setContextMenu]    = useState(null)
@@ -70,7 +74,9 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
   const homePos = useRef({})
 
   // ── Graph rebuild ──────────────────────────────────────────────────────────
+  const didMount = useRef(false)
   useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return }
     const { rfNodes: n, rfEdges: e } = buildGraph(nodes, edges)
     setNodes(n); setEdges(e)
     homePos.current = {}
@@ -295,10 +301,11 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
       selected: n.id === selectedNodeId,
       data: {
         ...n.data,
-        dimmed:      hasActive && !connectedIds.has(n.id),
-        highlighted: hasActive && connectedIds.has(n.id) && n.id !== activeNodeId,
-        isActive:    n.id === activeNodeId,
-        diffStatus:  diffStatusMap ? (diffStatusMap[n.id] ?? null) : null,
+        dimmed:        hasActive && !connectedIds.has(n.id),
+        highlighted:   hasActive && connectedIds.has(n.id) && n.id !== activeNodeId,
+        isActive:      n.id === activeNodeId,
+        insightTarget: insightIds ? insightIds.has(n.id) : false,
+        diffStatus:    diffStatusMap ? (diffStatusMap[n.id] ?? null) : null,
         ...(n.type === 'collapsed' && {
           isOpen: n.id === openDropdownId,
           onSelectItem: item => {
@@ -307,24 +314,49 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
         }),
       },
     }))
-  }, [rfNodes, selectedNodeId, activeNodeId, connectedIds, openDropdownId, onDropdownItemClick, diffStatusMap])
+  }, [rfNodes, selectedNodeId, activeNodeId, connectedIds, insightIds, openDropdownId, onDropdownItemClick, diffStatusMap])
 
 
   const displayEdges = useMemo(() => {
     const hasActive = activeNodeId !== null
+
+    function edgeStyle(action, dimmed, inPath) {
+      if (dimmed)  return { stroke: '#E2E8F0', strokeWidth: 1, opacity: 0.12 }
+      if (inPath)  return {}
+      if (action === 'triggers') return { stroke: '#f97316', strokeWidth: 1.5 }
+      if (action === 'write')    return { stroke: '#22c55e', strokeWidth: 1.5 }
+      if (action === 'read')     return { stroke: '#60a5fa', strokeWidth: 1.5 }
+      return                            { stroke: '#94a3b8', strokeWidth: 1.5 }
+    }
+
     return rfEdges.map(e => {
+      const action = e.data?.action ?? null
       const inPath = hasActive && connectedIds.has(e.source) && connectedIds.has(e.target)
       const dimmed  = hasActive && !inPath
-      if (inPath) return {
-        ...e,
-        type: 'belt',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#88c648' },
-        style: {},
+
+      if (inPath) {
+        const beltColor = action === 'triggers' ? '#f97316'
+          : action === 'write'    ? '#22c55e'
+          : action === 'read'     ? '#60a5fa'
+          : '#88c648'
+        return {
+          ...e,
+          type: 'belt',
+          markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: beltColor },
+          data: { ...e.data, beltColor },
+        }
       }
+
+      const arrowColor = dimmed ? '#E2E8F0'
+        : action === 'triggers' ? '#f97316'
+        : action === 'write'    ? '#22c55e'
+        : action === 'read'     ? '#60a5fa'
+        : '#94a3b8'
+
       return {
         ...e,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: dimmed ? '#E2E8F0' : '#94A3B8' },
-        style: dimmed ? { stroke: '#E2E8F0', strokeWidth: 1, opacity: 0.15 } : { stroke: '#CBD5E1', strokeWidth: 1.5 },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: arrowColor },
+        style: edgeStyle(action, dimmed, false),
       }
     })
   }, [rfEdges, activeNodeId, connectedIds])
@@ -343,7 +375,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
     setActiveNodeId(prev => prev === node.id ? null : node.id)
 
     if (node.type !== 'operation') {
-      onNodeClick({ id: node.id, label: node.data.label, type: node.data.type, sheet: node.data.sheet })
+      onNodeClick({ id: node.id, label: node.data.label, type: node.data.type, sheet: node.data.sheet, metadata: node.data.metadata ?? null })
     }
   }, [onNodeClick])
 
@@ -389,15 +421,43 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E2E8F0" />
         <Controls showInteractive={false} className="!shadow-md !rounded-lg !border !border-slate-200" />
         {drawerFullyClosed && (
-          <MiniMap
-            nodeColor={n => {
-              if (n.type === 'operation') return '#88c648'
-              return { source: '#3B82F6', transformation: '#F59E0B', use_case: '#8B5CF6' }[n.data?.type] ?? '#E2E8F0'
-            }}
-            nodeStrokeWidth={0}
-            className="!shadow-md !rounded-lg !border !border-slate-200"
-            pannable zoomable
-          />
+          <Panel position="bottom-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8, marginRight: 8 }}>
+            <MiniMap
+              nodeColor={n => {
+                if (n.type === 'operation') return '#88c648'
+                return getNodeColor(n.data?.type)
+              }}
+              nodeStrokeWidth={0}
+              className="!shadow-md !rounded-lg !border !border-slate-200"
+              style={{ position: 'relative', margin: 0 }}
+              pannable zoomable
+            />
+            <div style={{
+              background: 'var(--node-bg)',
+              border: '1px solid var(--node-border)',
+              borderRadius: 8,
+              padding: '6px 10px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              pointerEvents: 'none',
+            }}>
+              {[
+                { color: '#f97316', label: 'Triggers' },
+                { color: '#22c55e', label: 'Write' },
+                { color: '#60a5fa', label: 'Read' },
+              ].map(({ color, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <svg width="20" height="8" style={{ flexShrink: 0 }}>
+                    <line x1="0" y1="4" x2="14" y2="4" stroke={color} strokeWidth="2" />
+                    <polygon points="14,1 20,4 14,7" fill={color} />
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--node-label-color)' }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
         )}
         {drawerFullyClosed && (
           <div style={{

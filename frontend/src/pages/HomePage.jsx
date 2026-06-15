@@ -3,18 +3,30 @@ import axios from 'axios'
 import UploadModal from '../components/UploadModal.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
 import {
-  BarChart3, Clock, Plus, Database, Bookmark, BookmarkCheck,
-  FlaskConical, BookOpen, History, Search, X, GitBranch, LayoutDashboard,
-  LibraryBig, UploadCloud, Loader2, ArrowRight,
+  Database, GitMerge, Layers, Box,
+  Search, X, Loader2, ArrowRight, BarChart3,
+  History, UploadCloud, HardDrive,
 } from 'lucide-react'
 import DarkModeToggle from '../components/DarkModeToggle.jsx'
 
 const ACCENT = '#88c648'
 
+const TYPE_PILLS = [
+  { type: 'feature',       label: 'Features',     Icon: Layers,    color: '#88c648' },
+  { type: 'component',     label: 'Components',   Icon: Box,       color: '#8b5cf6' },
+  { type: 'collection',    label: 'Collections',  Icon: GitMerge,  color: '#d97706' },
+  { type: 'datalake',      label: 'Tables',       Icon: HardDrive, color: '#ec4899' },
+  { type: 'datawarehouse', label: 'Warehouses',   Icon: Database,  color: '#14b8a6' },
+]
+
+const CLICKABLE_TYPES = new Set(['feature', 'component', 'collection'])
+
 const TYPE_ICON = {
-  source:         { Icon: Database,        color: '#2563eb' },
-  transformation: { Icon: GitBranch,       color: '#d97706' },
-  use_case:       { Icon: LayoutDashboard, color: '#8b5cf6' },
+  feature:       { Icon: Layers,    color: '#88c648' },
+  component:     { Icon: Box,       color: '#8b5cf6' },
+  collection:    { Icon: GitMerge,  color: '#d97706' },
+  datalake:      { Icon: HardDrive, color: '#ec4899' },
+  datawarehouse: { Icon: Database,  color: '#14b8a6' },
 }
 
 function fmt(iso) {
@@ -26,12 +38,7 @@ function fmt(iso) {
   } catch { return iso }
 }
 
-const MODE_COLOR = {
-  formula:    { bg: 'rgba(37,99,235,0.15)',  text: '#93c5fd' },
-  structured: { bg: 'rgba(5,150,105,0.15)',  text: '#6ee7b7' },
-}
-
-// ── Global search ─────────────────────────────────────────────────────────────
+// ── Global search ───────────────────────────────────────────────────────────────
 function GlobalSearch({ navigate }) {
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState([])
@@ -58,25 +65,25 @@ function GlobalSearch({ navigate }) {
   function goToNode(r) { setOpen(false); setQuery(''); navigate(`/graph/${r.session_id}?node=${r.node_id}`) }
 
   return (
-    <div ref={wrapRef} className="relative w-full max-w-2xl mx-auto">
+    <div ref={wrapRef} className="relative w-full max-w-xl mx-auto">
       <div className="flex items-center rounded-xl border transition-all"
         style={{
           background: 'var(--hp-search-bg)',
           borderColor: open ? 'rgba(136,198,72,0.4)' : 'var(--hp-border)',
           boxShadow: open ? '0 0 0 3px rgba(136,198,72,0.08)' : 'none',
         }}>
-        <Search size={15} className="ml-4 shrink-0" style={{ color: 'var(--hp-muted)' }} />
+        <Search size={14} className="ml-4 shrink-0" style={{ color: 'var(--hp-muted)' }} />
         <input
           type="text" value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
-          placeholder="Rechercher un nœud dans tous les graphes…"
-          className="flex-1 bg-transparent outline-none py-3 px-3 text-sm"
+          placeholder="Rechercher un flux, une table, un composant…"
+          className="flex-1 bg-transparent outline-none py-2.5 px-3 text-sm"
           style={{ caretColor: ACCENT, color: 'var(--hp-search-text)' }}
         />
         {query && (
           <button onClick={() => { setQuery(''); setResults([]) }} className="mr-3" style={{ color: 'var(--hp-muted)' }}>
-            <X size={14} />
+            <X size={13} />
           </button>
         )}
       </div>
@@ -86,13 +93,12 @@ function GlobalSearch({ navigate }) {
           style={{ background: 'var(--hp-result-bg)', borderColor: 'var(--hp-border)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
           {loading ? (
             <div className="flex items-center gap-2 px-4 py-3 text-sm" style={{ color: 'var(--hp-muted)' }}>
-              <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: 'var(--hp-muted)', borderTopColor: 'transparent' }} /> Recherche en cours…
+              <Loader2 size={12} className="animate-spin" /> Recherche…
             </div>
           ) : results.length === 0 ? (
             <p className="px-4 py-3 text-sm" style={{ color: 'var(--hp-muted)' }}>Aucun résultat pour « {query} »</p>
           ) : (
-            <div className="max-h-72 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto">
               {results.map((r, i) => {
                 const { Icon, color } = TYPE_ICON[r.type] ?? { Icon: Database, color: '#64748b' }
                 return (
@@ -101,12 +107,12 @@ function GlobalSearch({ navigate }) {
                     style={{ borderBottom: i < results.length - 1 ? '1px solid var(--hp-border)' : 'none' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(128,128,128,0.06)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center" style={{ background: `${color}18` }}>
-                      <Icon size={13} style={{ color }} />
+                    <div className="shrink-0 w-6 h-6 rounded flex items-center justify-center" style={{ background: `${color}18` }}>
+                      <Icon size={11} style={{ color }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: 'var(--hp-text)' }}>{r.label}</p>
-                      <p className="text-[11px] truncate" style={{ color: 'var(--hp-muted)' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--hp-text)' }}>{r.label}</p>
+                      <p className="text-[10px] truncate" style={{ color: 'var(--hp-muted)' }}>
                         {r.graph_name}{r.sheet ? ` · ${r.sheet}` : ''}
                       </p>
                     </div>
@@ -117,137 +123,75 @@ function GlobalSearch({ navigate }) {
               })}
             </div>
           )}
-          {results.length > 0 && (
-            <div className="px-4 py-1.5 border-t text-[10px]"
-              style={{ borderColor: 'var(--hp-border)', color: 'var(--hp-dim)' }}>
-              {results.length} résultat{results.length !== 1 ? 's' : ''} — cliquer pour ouvrir
-            </div>
-          )}
         </div>
       )}
     </div>
   )
 }
 
-// ── Graph card ────────────────────────────────────────────────────────────────
-function GraphCard({ graph, onOpen, onToggleSave, saved, animClass }) {
-  const mc = MODE_COLOR[graph.mode] ?? { bg: 'rgba(100,116,139,0.15)', text: '#94a3b8' }
-
-  return (
-    <div
-      className={`group rounded-xl border transition-all cursor-pointer flex items-start gap-3 px-3.5 py-3 ${animClass}`}
-      style={{ background: 'var(--hp-card-bg)', borderColor: 'var(--hp-border)' }}
-      onClick={() => onOpen(graph.session_id)}
-      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(136,198,72,0.35)'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}
-    >
-      <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
-        style={{ background: 'rgba(136,198,72,0.1)' }}>
-        <BarChart3 size={15} style={{ color: ACCENT }} />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold truncate leading-snug" style={{ color: 'var(--hp-text)' }}>{graph.name}</p>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className="text-[10px] flex items-center gap-1" style={{ color: 'var(--hp-muted)' }}>
-            <Clock size={8} /> {fmt(graph.timestamp)}
-          </span>
-          <span className="text-[10px]" style={{ color: 'var(--hp-muted)' }}>{graph.node_count}n · {graph.edge_count}e</span>
-          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold"
-            style={{ background: mc.bg, color: mc.text }}>{graph.mode}</span>
-        </div>
-      </div>
-
-      <button
-        onClick={e => { e.stopPropagation(); onToggleSave(graph.session_id, saved) }}
-        title={saved ? 'Retirer des enregistrés' : 'Enregistrer définitivement'}
-        className="shrink-0 p-1 rounded-lg transition-colors mt-0.5"
-        style={{ background: 'transparent' }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(128,128,128,0.08)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-        {saved
-          ? <BookmarkCheck size={13} style={{ color: ACCENT }} />
-          : <Bookmark size={13} style={{ color: 'var(--hp-muted)' }} />}
-      </button>
-    </div>
-  )
-}
-
-function ColHeader({ title, subtitle, count, icon: Icon }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      {Icon && <Icon size={13} style={{ color: ACCENT }} />}
-      <div className="flex-1 min-w-0">
-        <span className="text-xs font-bold" style={{ color: 'var(--hp-text)' }}>{title}</span>
-        {subtitle && <span className="text-[10px] ml-2" style={{ color: 'var(--hp-muted)' }}>{subtitle}</span>}
-      </div>
-      {count > 0 && (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-          style={{ background: 'rgba(136,198,72,0.1)', color: ACCENT }}>{count}</span>
-      )}
-    </div>
-  )
-}
-
-function EmptyCol({ message }) {
-  return (
-    <div className="rounded-xl border border-dashed px-4 py-8 text-center"
-      style={{ borderColor: 'var(--hp-border)', background: 'rgba(128,128,128,0.02)' }}>
-      <p className="text-xs" style={{ color: 'var(--hp-dim)' }}>{message}</p>
-    </div>
-  )
-}
-
-// ── Catalog node card ─────────────────────────────────────────────────────────
-function CatalogCard({ node, onGenerate, generating }) {
-  const isGenerating = generating === node.node_id
-  const { Icon, color } = node.type === 'use_case'
-    ? { Icon: LayoutDashboard, color: '#8b5cf6' }
-    : { Icon: Database, color: '#2563eb' }
-
-  return (
-    <button
-      onClick={() => onGenerate(node.node_id)}
-      disabled={!!generating}
-      className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all disabled:opacity-60"
-      style={{ background: 'var(--hp-card-bg)', borderColor: 'var(--hp-border)' }}
-      onMouseEnter={e => { if (!generating) e.currentTarget.style.borderColor = `${color}55` }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--hp-border)' }}
-    >
-      <div className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center" style={{ background: `${color}15` }}>
-        {isGenerating
-          ? <Loader2 size={13} style={{ color }} className="animate-spin" />
-          : <Icon size={13} style={{ color }} />
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold truncate" style={{ color: 'var(--hp-text)' }}>{node.label}</p>
-        {node.sheet && <p className="text-[10px] truncate" style={{ color: 'var(--hp-muted)' }}>{node.sheet}</p>}
-      </div>
-      <ArrowRight size={12} style={{ color: 'var(--hp-dim)', flexShrink: 0 }} />
-    </button>
-  )
-}
-
-// ── Catalog browser section ───────────────────────────────────────────────────
-function CatalogBrowser({ navigate, onImportClick, importResult }) {
-  const [tab, setTab]           = useState('source')
-  const [query, setQuery]       = useState('')
-  const [nodes, setNodes]       = useState([])
-  const [total, setTotal]       = useState(0)
-  const [loading, setLoading]   = useState(false)
-  const [generating, setGenerating] = useState(null)
-  const debouncedQuery          = useDebounce(query, 250)
+// ── Page ────────────────────────────────────────────────────────────────────────
+export default function HomePage({ navigate }) {
+  const [showImport, setShowImport]   = useState(false)
+  const [importing, setImporting]     = useState(false)
+  const [importError, setImportError] = useState(null)
+  const [catalogNodes, setCatalogNodes] = useState([])
+  const [stats, setStats]             = useState({})
+  const [totalNodes, setTotalNodes]   = useState(0)
+  const [saved, setSaved]             = useState([])
+  const [cached, setCached]           = useState([])
+  const [loadingGraph, setLoadingGraph] = useState(false)
+  const [insights, setInsights]       = useState(null)
+  const [generating, setGenerating]   = useState(null)
+  const [openPill, setOpenPill]       = useState(null)  // type key of open pill menu
+  const [pillPage, setPillPage]       = useState(0)
 
   useEffect(() => {
-    setLoading(true)
-    axios.get('/api/catalog/nodes/', { params: { type: tab, q: debouncedQuery } })
-      .then(({ data }) => { setNodes(data.nodes ?? []); setTotal(data.total ?? 0) })
-      .catch(() => setNodes([]))
-      .finally(() => setLoading(false))
-  }, [tab, debouncedQuery])
+    axios.get('/api/catalog/nodes/')
+      .then(({ data }) => {
+        const nodes = data.nodes ?? []
+        setCatalogNodes(nodes)
+        setTotalNodes(data.total ?? 0)
+        const counts = {}
+        for (const n of nodes) counts[n.type] = (counts[n.type] ?? 0) + 1
+        setStats(counts)
+      })
+      .catch(() => {})
 
-  async function handleGenerate(nodeId) {
+    axios.get('/api/graphs/')
+      .then(({ data }) => { setSaved(data.saved ?? []); setCached(data.cached ?? []) })
+      .catch(() => {})
+
+    axios.get('/api/catalog/insights/')
+      .then(({ data }) => setInsights(data))
+      .catch(() => {})
+  }, [])
+
+  async function handleCatalogImport(files) {
+    setImporting(true); setImportError(null)
+    const formData = new FormData()
+    files.forEach(f => formData.append('file', f))
+    try {
+      await axios.post('/api/catalog/import/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setShowImport(false)
+      window.location.reload()
+    } catch (err) {
+      setImportError(err.response?.data?.error ?? 'Erreur lors de l\'import.')
+    } finally { setImporting(false) }
+  }
+
+  async function handleOpenGraph() {
+    setLoadingGraph(true)
+    try {
+      const { data } = await axios.post('/api/catalog/graph/', {})
+      navigate(`/graph/${data.session_id}`)
+    } catch {
+      setLoadingGraph(false)
+    }
+  }
+
+  async function handleOpenNode(nodeId) {
     setGenerating(nodeId)
     try {
       const { data } = await axios.post('/api/catalog/graph/', { node_id: nodeId })
@@ -255,193 +199,11 @@ function CatalogBrowser({ navigate, onImportClick, importResult }) {
     } catch { setGenerating(null) }
   }
 
-  const TABS = [
-    { key: 'source',   label: 'Sources',     Icon: Database,        color: '#2563eb' },
-    { key: 'use_case', label: 'Dashboards',   Icon: LayoutDashboard, color: '#8b5cf6' },
-  ]
-
-  return (
-    <section>
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-4">
-        <LibraryBig size={14} style={{ color: ACCENT }} />
-        <div className="flex-1">
-          <span className="text-xs font-bold" style={{ color: 'var(--hp-text)' }}>Catalogue</span>
-          {total > 0 && (
-            <span className="text-[10px] ml-2" style={{ color: 'var(--hp-muted)' }}>{total} tables indexées</span>
-          )}
-        </div>
-        <button
-          onClick={onImportClick}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-          style={{ border: '1px solid var(--hp-border)', color: 'var(--hp-subtext)' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--hp-border)'; e.currentTarget.style.color = 'var(--hp-subtext)' }}
-        >
-          <UploadCloud size={12} /> Importer
-        </button>
-      </div>
-
-      {/* Import result toast */}
-      {importResult && (
-        <div className="mb-3 px-3 py-2 rounded-lg text-xs"
-          style={{ background: 'rgba(136,198,72,0.1)', border: '1px solid rgba(136,198,72,0.25)', color: ACCENT }}>
-          +{importResult.added_nodes} nœuds · +{importResult.added_edges} liens · {importResult.total_nodes} au total
-        </div>
-      )}
-
-      {/* Type tabs */}
-      <div className="flex gap-1 mb-3 p-0.5 rounded-lg" style={{ background: 'var(--rtab-strip)' }}>
-        {TABS.map(({ key, label, Icon, color }) => (
-          <button
-            key={key}
-            onClick={() => { setTab(key); setQuery('') }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all"
-            style={tab === key
-              ? { background: 'var(--hp-card-bg)', color, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
-              : { color: 'var(--hp-muted)' }
-            }
-          >
-            <Icon size={11} /> {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search within catalog */}
-      {total > 0 && (
-        <div className="flex items-center rounded-lg border mb-3 px-3"
-          style={{ background: 'var(--hp-search-bg)', borderColor: 'var(--hp-border)' }}>
-          <Search size={11} style={{ color: 'var(--hp-muted)', flexShrink: 0 }} />
-          <input
-            type="text" value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder={`Filtrer les ${tab === 'source' ? 'sources' : 'dashboards'}…`}
-            className="flex-1 bg-transparent outline-none py-2 px-2 text-xs"
-            style={{ color: 'var(--hp-search-text)', caretColor: ACCENT }}
-          />
-          {query && (
-            <button onClick={() => setQuery('')} style={{ color: 'var(--hp-muted)' }}>
-              <X size={11} />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Node list */}
-      {loading ? (
-        <div className="flex items-center gap-2 py-6 text-xs" style={{ color: 'var(--hp-muted)' }}>
-          <Loader2 size={13} className="animate-spin" /> Chargement…
-        </div>
-      ) : total === 0 ? (
-        <div className="rounded-xl border border-dashed px-4 py-8 text-center"
-          style={{ borderColor: 'var(--hp-border)', background: 'rgba(128,128,128,0.02)' }}>
-          <p className="text-xs" style={{ color: 'var(--hp-dim)' }}>Catalogue vide — importez des fichiers pour l'alimenter</p>
-        </div>
-      ) : nodes.length === 0 ? (
-        <p className="text-xs py-4 text-center" style={{ color: 'var(--hp-muted)' }}>Aucun résultat pour « {query} »</p>
-      ) : (
-        <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1">
-          {nodes.map(node => (
-            <CatalogCard key={node.node_id} node={node} onGenerate={handleGenerate} generating={generating} />
-          ))}
-          {nodes.length === 200 && (
-            <p className="text-[10px] text-center pt-1" style={{ color: 'var(--hp-dim)' }}>200 premiers résultats affichés — affinez la recherche</p>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-export default function HomePage({ navigate }) {
-  const [showModal, setShowModal]               = useState(false)
-  const [catalogImportModal, setCatalogImportModal] = useState(false)
-  const [uploading, setUploading]               = useState(false)
-  const [uploadError, setUploadError]           = useState(null)
-  const [catalogImporting, setCatalogImporting] = useState(false)
-  const [catalogImportError, setCatalogImportError] = useState(null)
-  const [catalogImportResult, setCatalogImportResult] = useState(null)
-  const [saved, setSaved]                       = useState([])
-  const [cached, setCached]                     = useState([])
-  const [loading, setLoading]                   = useState(true)
-  const [sampleLoading, setSampleLoading]       = useState(false)
-  // tracks recently-moved IDs so we can play a slide animation
-  const [movedToSaved, setMovedToSaved]         = useState(new Set())
-  const [movedToCached, setMovedToCached]       = useState(new Set())
-
-  function loadGraphs() {
-    return axios.get('/api/graphs/')
-      .then(({ data }) => { setSaved(data.saved ?? []); setCached(data.cached ?? []) })
-      .catch(() => {})
-  }
-
-  useEffect(() => { loadGraphs().finally(() => setLoading(false)) }, [])
-
-  function flashMoved(id, direction) {
-    const setter = direction === 'saved' ? setMovedToSaved : setMovedToCached
-    setter(prev => new Set([...prev, id]))
-    setTimeout(() => setter(prev => { const n = new Set(prev); n.delete(id); return n }), 500)
-  }
-
-  async function handleToggleSave(id, isSaved) {
-    try {
-      if (isSaved) {
-        await axios.delete(`/api/graphs/${id}/save/`)
-        await loadGraphs()
-        flashMoved(id, 'cached')
-      } else {
-        await axios.post(`/api/graphs/${id}/save/`)
-        await loadGraphs()
-        flashMoved(id, 'saved')
-      }
-    } catch {
-      // request failed — leave UI unchanged
-    }
-  }
-
-  async function handleUpload(files, mode, name) {
-    setUploading(true); setUploadError(null)
-    const formData = new FormData()
-    files.forEach(f => formData.append('file', f))
-    formData.append('mode', mode)
-    if (name) formData.append('name', name)
-    try {
-      const { data } = await axios.post('/api/upload/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      navigate(`/graph/${data.session_id}`)
-    } catch (err) {
-      setUploadError(err.response?.data?.error ?? 'Upload failed.')
-    } finally { setUploading(false) }
-  }
-
-  async function handleLoadSample() {
-    setSampleLoading(true)
-    try {
-      const res  = await fetch('/mock_lineage.xlsx')
-      const blob = await res.blob()
-      const file = new File([blob], 'mock_lineage.xlsx', { type: blob.type })
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('mode', 'structured')
-      formData.append('name', 'Sample — mock_lineage.xlsx')
-      const { data } = await axios.post('/api/upload/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      navigate(`/graph/${data.session_id}`)
-    } catch { /* silent */ } finally { setSampleLoading(false) }
-  }
-
-  async function handleCatalogImport(files, mode) {
-    setCatalogImporting(true); setCatalogImportError(null); setCatalogImportResult(null)
-    const formData = new FormData()
-    files.forEach(f => formData.append('file', f))
-    formData.append('mode', mode)
-    try {
-      const { data } = await axios.post('/api/catalog/import/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setCatalogImportResult(data)
-      setCatalogImportModal(false)
-    } catch (err) {
-      setCatalogImportError(err.response?.data?.error ?? 'Import failed.')
-    } finally { setCatalogImporting(false) }
-  }
+  const allGraphs = [...saved, ...cached].slice(0, 6)
+  const topInsights = [
+    ...(insights?.duplicates ?? []).slice(0, 2),
+    ...(insights?.critical_paths ?? []).slice(0, 2),
+  ].slice(0, 3)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--hp-bg)', color: 'var(--hp-text)' }}>
@@ -449,7 +211,7 @@ export default function HomePage({ navigate }) {
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b"
         style={{ borderTop: `3px solid ${ACCENT}`, borderBottomColor: 'var(--hp-border)', background: 'var(--hp-header-bg)', backdropFilter: 'blur(10px)' }}>
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center gap-3">
+        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center gap-3">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <div style={{ width: 28, height: 28, borderRadius: 7, background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: 'white', flexShrink: 0 }}>N</div>
             <div className="text-left">
@@ -457,125 +219,244 @@ export default function HomePage({ navigate }) {
               <p className="text-[9px] font-semibold tracking-widest leading-none mt-0.5 uppercase" style={{ color: ACCENT }}>Explorer</p>
             </div>
           </button>
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold"
-            style={{ background: 'rgba(136,198,72,0.08)', border: '1px solid rgba(136,198,72,0.15)', color: ACCENT }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
-            Plateforme Data Lineage
-          </span>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => { setImportError(null); setShowImport(true) }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-colors"
+              style={{ background: ACCENT }}
+              onMouseEnter={e => e.currentTarget.style.background = '#6aaf35'}
+              onMouseLeave={e => e.currentTarget.style.background = ACCENT}
+            >
+              <UploadCloud size={13} /> Importer
+            </button>
             <DarkModeToggle />
           </div>
         </div>
       </header>
 
-      {/* ── Hero ── */}
-      <section className="max-w-5xl mx-auto px-6 pt-10 pb-8 w-full text-center">
-        <h1 className="text-2xl font-black leading-tight mb-2 tracking-tight" style={{ color: 'var(--hp-text)' }}>
-          Votre data lineage, <span style={{ color: ACCENT }}>entièrement cartographié.</span>
-        </h1>
-        <p className="text-sm max-w-md mx-auto mb-6" style={{ color: 'var(--hp-subtext)' }}>
-          Tracez les sources, explorez les flux KPI et cartographiez les dépendances de votre stack de données.
-        </p>
-
-        <GlobalSearch navigate={navigate} />
-
-        <div className="flex items-center justify-center gap-3 mt-5">
-          <button onClick={() => { setUploadError(null); setShowModal(true) }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
-            style={{ background: ACCENT }}
-            onMouseEnter={e => e.currentTarget.style.background = '#6aaf35'}
-            onMouseLeave={e => e.currentTarget.style.background = ACCENT}>
-            <Plus size={14} strokeWidth={2.5} /> Nouveau graphe
-          </button>
-          <button onClick={handleLoadSample} disabled={sampleLoading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-            style={{ border: '1px solid var(--hp-border)', color: 'var(--hp-subtext)' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--hp-muted)'; e.currentTarget.style.color = 'var(--hp-text)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--hp-border)'; e.currentTarget.style.color = 'var(--hp-subtext)' }}>
-            <FlaskConical size={13} /> {sampleLoading ? 'Chargement…' : 'Essayer un exemple'}
-          </button>
+      {/* ── Hero + Search ── */}
+      <section className="max-w-3xl mx-auto px-6 pt-10 pb-6 w-full">
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-black tracking-tight mb-1.5" style={{ color: 'var(--hp-text)' }}>
+            Bienvenue sur Nexus
+          </h1>
+          <p className="text-sm mb-5" style={{ color: 'var(--hp-subtext)' }}>
+            Explorez et comprenez vos flux de données
+          </p>
+          <GlobalSearch navigate={navigate} />
         </div>
       </section>
 
-      {/* ── Divider ── */}
-      <div className="max-w-5xl mx-auto w-full px-6">
+      {/* ── Type pills ── */}
+      {totalNodes > 0 && (() => {
+        const PAGE_SIZE = 8
+        return (
+          <div className="max-w-3xl mx-auto w-full px-6 pb-4">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {TYPE_PILLS.filter(p => CLICKABLE_TYPES.has(p.type)).map(({ type, label, Icon, color }) => {
+                const count = stats[type] ?? 0
+                if (!count) return null
+                const isOpen = openPill === type
+                const items = catalogNodes.filter(n => n.type === type)
+                const totalPages = Math.ceil(items.length / PAGE_SIZE)
+                const page = isOpen ? pillPage : 0
+                const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+                return (
+                  <div key={type} className="relative">
+                    <button
+                      onClick={() => { if (isOpen) { setOpenPill(null) } else { setOpenPill(type); setPillPage(0) } }}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all cursor-pointer"
+                      style={{
+                        borderColor: isOpen ? color : 'var(--hp-border)',
+                        background: isOpen ? `${color}12` : 'var(--hp-card-bg)',
+                        boxShadow: isOpen ? `0 0 0 1px ${color}30` : 'none',
+                      }}
+                      onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}10` } }}
+                      onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'var(--hp-border)'; e.currentTarget.style.background = 'var(--hp-card-bg)' } }}>
+                      <Icon size={9} style={{ color }} />
+                      <span className="text-[11px] font-bold" style={{ color }}>{count}</span>
+                      <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>{label}</span>
+                    </button>
+
+                    {isOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenPill(null)} />
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-52 rounded-lg border shadow-lg z-50 overflow-hidden"
+                          style={{ background: 'var(--hp-header-bg)', borderColor: 'var(--hp-border)' }}>
+
+                          <div className="py-1">
+                            {pageItems.map(n => (
+                              <button key={n.node_id} onClick={() => handleOpenNode(n.node_id)}
+                                disabled={!!generating}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors disabled:opacity-50"
+                                onMouseEnter={e => e.currentTarget.style.background = `${color}08`}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                {generating === n.node_id
+                                  ? <Loader2 size={9} style={{ color }} className="animate-spin shrink-0" />
+                                  : <Icon size={9} style={{ color, flexShrink: 0 }} />
+                                }
+                                <span className="text-[11px] font-medium truncate" style={{ color: 'var(--hp-text)' }}>{n.label}</span>
+                                <ArrowRight size={9} className="ml-auto shrink-0" style={{ color: 'var(--hp-dim)' }} />
+                              </button>
+                            ))}
+                          </div>
+
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-3 py-1.5 border-t" style={{ borderColor: 'var(--hp-border)' }}>
+                              <button onClick={() => setPillPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-30"
+                                style={{ color: 'var(--hp-muted)' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover, rgba(0,0,0,0.04))'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                ← Préc.
+                              </button>
+                              <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>
+                                {page + 1} / {totalPages}
+                              </span>
+                              <button onClick={() => setPillPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-30"
+                                style={{ color: 'var(--hp-muted)' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover, rgba(0,0,0,0.04))'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                Suiv. →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+
+              <div className="w-px h-4" style={{ background: 'var(--hp-border)' }} />
+
+              {TYPE_PILLS.filter(p => !CLICKABLE_TYPES.has(p.type)).map(({ type, label, Icon, color }) => {
+                const count = stats[type] ?? 0
+                if (!count) return null
+                return (
+                  <div key={type}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border opacity-60"
+                    style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-card-bg)' }}>
+                    <Icon size={9} style={{ color }} />
+                    <span className="text-[11px] font-bold" style={{ color }}>{count}</span>
+                    <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>{label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── CTA: Explorer le catalogue ── */}
+      <div className="max-w-3xl mx-auto w-full px-6 pb-6">
+        <button onClick={handleOpenGraph} disabled={loadingGraph || totalNodes === 0}
+          className="mx-auto flex items-center gap-2.5 px-4 py-2 rounded-lg border transition-all disabled:opacity-50"
+          style={{ borderColor: ACCENT, background: `${ACCENT}08` }}
+          onMouseEnter={e => { if (!loadingGraph) e.currentTarget.style.background = `${ACCENT}15` }}
+          onMouseLeave={e => e.currentTarget.style.background = `${ACCENT}08`}>
+          {loadingGraph
+            ? <Loader2 size={13} style={{ color: ACCENT }} className="animate-spin" />
+            : <BarChart3 size={13} style={{ color: ACCENT }} />
+          }
+          <span className="text-xs font-semibold" style={{ color: 'var(--hp-text)' }}>Explorer le catalogue</span>
+          <ArrowRight size={12} style={{ color: ACCENT }} />
+        </button>
+      </div>
+
+      <div className="max-w-3xl mx-auto w-full px-6">
         <div className="border-t" style={{ borderColor: 'var(--hp-border)' }} />
       </div>
 
-      {/* ── Three-column layout ── */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm py-8" style={{ color: 'var(--hp-muted)' }}>
-            <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: 'var(--hp-muted)', borderTopColor: 'transparent' }} /> Chargement…
+      {/* ── Body: Récents + Suggestions ── */}
+      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* Récents */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <History size={12} style={{ color: 'var(--hp-muted)' }} />
+              <span className="text-xs font-bold" style={{ color: 'var(--hp-text)' }}>Récents</span>
+            </div>
+            {allGraphs.length === 0 ? (
+              <p className="text-[11px] py-4" style={{ color: 'var(--hp-muted)' }}>Aucun graphe récent</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {allGraphs.map(g => (
+                  <button key={g.session_id} onClick={() => navigate(`/graph/${g.session_id}`)}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all w-full"
+                    style={{ background: 'var(--hp-card-bg)', borderColor: 'var(--hp-border)' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = `${ACCENT}55`}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}>
+                    <BarChart3 size={12} style={{ color: ACCENT, flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--hp-text)' }}>{g.name}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--hp-muted)' }}>{fmt(g.timestamp)} · {g.node_count}n</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-5">
 
-            {/* Left — Recent (cached) */}
-            <div>
-              <ColHeader title="Récents" subtitle="Cache 24h" count={cached.length} icon={History} />
-              {cached.length === 0
-                ? <EmptyCol message='Aucun graphe récent — cliquez sur « Nouveau graphe » pour importer' />
-                : <div className="flex flex-col gap-2">
-                    {cached.map(g => (
-                      <GraphCard key={g.session_id} graph={g}
-                        onOpen={id => navigate(`/graph/${id}`)}
-                        onToggleSave={handleToggleSave}
-                        saved={false}
-                        animClass={movedToCached.has(g.session_id) ? 'hp-slide-from-right' : ''}
-                      />
-                    ))}
-                  </div>
-              }
+          {/* Suggestions rapides */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[11px]">💡</span>
+              <span className="text-xs font-bold" style={{ color: 'var(--hp-text)' }}>Suggestions</span>
             </div>
-
-            {/* Middle — Saved */}
-            <div>
-              <ColHeader title="Enregistrés" subtitle="Permanents" count={saved.length} icon={BookOpen} />
-              {saved.length === 0
-                ? <EmptyCol message="Aucun graphe enregistré — marquez un graphe récent" />
-                : <div className="flex flex-col gap-2">
-                    {saved.map(g => (
-                      <GraphCard key={g.session_id} graph={g}
-                        onOpen={id => navigate(`/graph/${id}`)}
-                        onToggleSave={handleToggleSave}
-                        saved
-                        animClass={movedToSaved.has(g.session_id) ? 'hp-slide-from-left' : ''}
-                      />
-                    ))}
-                  </div>
-              }
-            </div>
-
-            {/* Right — Catalog */}
-            <div>
-              <CatalogBrowser
-                navigate={navigate}
-                onImportClick={() => { setCatalogImportError(null); setCatalogImportModal(true) }}
-                importResult={catalogImportResult}
-              />
-            </div>
-
+            {topInsights.length === 0 ? (
+              <p className="text-[11px] py-4" style={{ color: 'var(--hp-muted)' }}>Aucune suggestion</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {topInsights.map((insight, i) => {
+                  const isDup = insight.type === 'duplicate'
+                  const color = isDup ? '#ef4444' : '#f59e0b'
+                  const title = isDup
+                    ? `${insight.pair[0].label} ↔ ${insight.pair[1].label}`
+                    : `Chaîne de ${insight.length} étapes`
+                  const sub = isDup
+                    ? `${Math.round(insight.similarity * 100)}% similaires${insight.same_sql ? ' · même SQL' : ''}`
+                    : insight.path.map(n => n.label).join(' → ')
+                  return (
+                    <button key={i} onClick={handleOpenGraph}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all w-full"
+                      style={{ background: 'var(--hp-card-bg)', borderColor: 'var(--hp-border)' }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = `${color}55`}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}>
+                      <div className="w-5 h-5 rounded flex items-center justify-center shrink-0"
+                        style={{ background: `${color}15` }}>
+                        <span className="text-[10px] font-bold" style={{ color }}>
+                          {isDup ? '2x' : insight.length}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--hp-text)' }}>{title}</p>
+                        <p className="text-[10px] truncate" style={{ color: 'var(--hp-muted)' }}>{sub}</p>
+                      </div>
+                      <ArrowRight size={11} style={{ color: 'var(--hp-dim)', flexShrink: 0 }} />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
 
-      <footer className="text-center py-4 text-[11px]" style={{ color: 'var(--hp-dim)', borderTop: '1px solid var(--hp-border)' }}>
+      <footer className="text-center py-4 text-[11px]"
+        style={{ color: 'var(--hp-dim)', borderTop: '1px solid var(--hp-border)' }}>
         <span style={{ color: ACCENT, fontWeight: 700 }}>nexus-explorer</span> — Visualisation de data lineage
       </footer>
 
-      {showModal && (
-        <UploadModal onUpload={handleUpload} loading={uploading} error={uploadError} onClose={() => !uploading && setShowModal(false)} />
-      )}
-
-      {catalogImportModal && (
+      {showImport && (
         <UploadModal
           catalogMode
           onUpload={handleCatalogImport}
-          loading={catalogImporting}
-          error={catalogImportError}
-          onClose={() => !catalogImporting && setCatalogImportModal(false)}
+          loading={importing}
+          error={importError}
+          onClose={() => !importing && setShowImport(false)}
         />
       )}
     </div>

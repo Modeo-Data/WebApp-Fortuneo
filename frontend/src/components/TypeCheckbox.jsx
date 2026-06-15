@@ -1,8 +1,8 @@
 import { TYPE_CFG } from '../lib/nodeTypes.js'
 
-export default function TypeCheckbox({ type, isActive, count, onToggle }) {
+export default function TypeCheckbox({ type, isActive, count, onToggle, Icon: IconProp }) {
   const cfg = TYPE_CFG[type]
-  const Icon = cfg.icon
+  const Icon = IconProp ?? cfg?.icon
   return (
     <label className="tc-wrap">
       <input type="checkbox" checked={isActive} onChange={() => onToggle(type)} />

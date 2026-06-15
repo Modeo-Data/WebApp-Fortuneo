@@ -22,17 +22,16 @@ export default function CollapsedNode({ data, selected }) {
 
   return (
     <div style={{
-      opacity: dimmed ? 0.18 : 1,
+      opacity: dimmed ? 0.30 : 1,
       transform: isActive ? 'scale(1.06)' : highlighted ? 'scale(1.03)' : 'scale(1)',
-      transition: 'opacity 0.2s ease, transform 0.2s ease',
+      boxShadow: dimmed ? 'var(--dimmed-node-glow)' : 'none',
+      transition: 'opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
       position: 'relative',
       width: 240,
       cursor: 'pointer',
     }}>
-      <Handle type="target" position={Position.Left}
-        style={{ background: ACCENT, width: 8, height: 8, border: '2px solid white', left: -1 }} />
-      <Handle type="source" position={Position.Right}
-        style={{ background: ACCENT, width: 8, height: 8, border: '2px solid white', right: -1 }} />
+      <Handle type="target" position={Position.Left} style={{ opacity: 0, width: 8, height: 8, left: -1 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0, width: 8, height: 8, right: -1 }} />
 
       {/* Stacked card shadows (depth effect) */}
       <div style={{

@@ -2,8 +2,14 @@ import { BaseEdge, useReactFlow, useNodesInitialized } from '@xyflow/react'
 import { routeEdgeStaircase } from '../lib/edgeUtils.js'
 
 const SPREAD   = 14
-const EXIT_MAX = 100
-const EXIT_MIN = 30
+const EXIT_MAX = 100  // center edge horizontal exit (px)
+const EXIT_MIN = 30   // outermost edge horizontal exit (px)
+
+const ACTION_COLOR = {
+  triggers: '#f97316',
+  write:    '#22c55e',
+  read:     '#60a5fa',
+}
 
 function centerOutRank(idx, total) {
   const center = (total - 1) / 2
@@ -15,14 +21,15 @@ function centerOutRank(idx, total) {
     .indexOf(idx)
 }
 
-export default function BeltEdge({
+export default function SpreadEdge({
   id, source, target,
   sourceX, sourceY, targetX, targetY,
-  markerEnd, data,
+  markerEnd, style, data,
 }) {
   const { getNodes } = useReactFlow()
   useNodesInitialized()  // re-render once all nodes have measured dimensions
-  const { srcIdx = 0, srcTotal = 1, tgtIdx = 0, tgtTotal = 1, beltColor = '#88c648' } = data ?? {}
+  const { srcIdx = 0, srcTotal = 1, tgtIdx = 0, tgtTotal = 1, action } = data ?? {}
+  const color = ACTION_COLOR[action] ?? '#94a3b8'
 
   const sy = sourceY + (srcIdx - (srcTotal - 1) / 2) * SPREAD
   const ty = targetY + (tgtIdx - (tgtTotal - 1) / 2) * SPREAD
@@ -36,14 +43,8 @@ export default function BeltEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{
-        stroke:          beltColor,
-        strokeWidth:     3,
-        strokeDasharray: '10 6',
-        animation:       'belt 0.45s linear infinite',
-        filter:          `drop-shadow(0 0 4px ${beltColor}88)`,
-      }} />
-      <circle cx={sourceX} cy={sy} r={3.5} fill={beltColor} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
+      <circle cx={sourceX} cy={sy} r={3.5} fill={color} />
     </>
   )
 }

@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, UploadCloud } from 'lucide-react'
-import ModeToggle from './ModeToggle.jsx'
 
 const ACCENT = '#88c648'
 
-export default function UploadModal({ onUpload, loading, error, onClose, catalogMode = false }) {
-  const [mode, setMode] = useState('formula')
-  const [graphName, setGraphName] = useState('')
-  const [dragging, setDragging] = useState(false)
-  const [isJson, setIsJson] = useState(false)
-  const inputRef = useRef(null)
+export default function UploadModal({
+  onUpload, loading, error, onClose,
+  catalogMode = false, title, subtitle,
+  typeOptions = null, // [{ key, label, Icon, color }]
+}) {
+  const [graphName, setGraphName]     = useState('')
+  const [dragging, setDragging]       = useState(false)
+  const [selectedType, setSelectedType] = useState(typeOptions?.[0]?.key ?? null)
+  const inputRef                      = useRef(null)
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape' && !loading) onClose() }
@@ -18,24 +20,20 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
   }, [loading, onClose])
 
   function handleFiles(files) {
-    const arr = [...files]
-    const valid = arr.filter(f =>
+    const valid = [...files].filter(f =>
       f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.json')
     )
     if (!valid.length) return
-    const json = valid.every(f => f.name.endsWith('.json'))
-    setIsJson(json)
-    onUpload(valid, json ? 'json' : mode, graphName || null)
+    const mode = typeOptions ? selectedType : null
+    onUpload(valid, mode, catalogMode ? null : graphName || null)
   }
 
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(3px)' }}
       onClick={e => { if (e.target === e.currentTarget && !loading) onClose() }}
     >
-      {/* Card */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
         style={{ border: '1px solid #E2E8F0' }}>
 
@@ -43,12 +41,12 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-sm font-bold text-slate-800">
-              {catalogMode ? 'Importer dans le catalogue' : 'Nouveau graphe'}
+              {title ?? (catalogMode ? 'Importer dans le catalogue' : 'Nouveau graphe')}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {catalogMode
+              {subtitle ?? (catalogMode
                 ? 'Ajouter des fichiers au catalogue de tables persistant'
-                : 'Importer un ou plusieurs fichiers Excel'}
+                : 'Importer un ou plusieurs fichiers')}
             </p>
           </div>
           <button onClick={onClose} disabled={loading}
@@ -59,11 +57,35 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* Mode toggle — hidden for JSON imports */}
-          {!isJson && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mode d'analyse</span>
-              <ModeToggle mode={mode} onChange={setMode} />
+
+          {/* Type selector — only when typeOptions provided */}
+          {typeOptions && (
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">
+                Type de données
+              </label>
+              <div className="flex gap-2">
+                {typeOptions.map(({ key, label, Icon, color }) => {
+                  const active = selectedType === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedType(key)}
+                      disabled={loading}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-xs font-semibold transition-all"
+                      style={{
+                        borderColor: active ? color : '#E2E8F0',
+                        background:  active ? `${color}12` : 'transparent',
+                        color:       active ? color : '#94a3b8',
+                        boxShadow:   active ? `0 0 0 2px ${color}25` : 'none',
+                      }}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
 
@@ -78,8 +100,7 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
                 value={graphName}
                 onChange={e => setGraphName(e.target.value)}
                 placeholder="ex. KPIs Revenus T1"
-                className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-slate-50
-                  focus:outline-none transition"
+                className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none transition"
                 onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}40`}
                 onBlur={e => e.target.style.boxShadow = ''}
               />
@@ -93,13 +114,14 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
             onDragLeave={() => setDragging(false)}
             onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
             className={`border-2 border-dashed rounded-xl px-6 py-8 text-center transition-all cursor-pointer
-              ${dragging ? 'border-orange-400 bg-orange-50' : 'border-slate-200 hover:border-orange-300 hover:bg-slate-50'}
+              ${dragging ? 'border-green-400 bg-green-50' : 'border-slate-200 hover:border-green-300 hover:bg-slate-50'}
               ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {loading ? (
               <div className="flex flex-col items-center gap-3">
-                <div className="w-7 h-7 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-slate-500 font-medium">Analyse en cours…</p>
+                <div className="w-7 h-7 border-4 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: ACCENT, borderTopColor: 'transparent' }} />
+                <p className="text-sm text-slate-500 font-medium">Traitement en cours…</p>
               </div>
             ) : (
               <>
@@ -113,16 +135,6 @@ export default function UploadModal({ onUpload, loading, error, onClose, catalog
             <input ref={inputRef} type="file" accept=".xlsx,.xls,.json" multiple className="hidden"
               onChange={e => handleFiles(e.target.files)} />
           </div>
-
-          {/* Mode hint */}
-          <p className="text-xs text-slate-400 leading-relaxed">
-            {isJson
-              ? <><strong className="text-slate-600">Mode JSON</strong> — réimporte un graphe précédemment exporté depuis Nexus Explorer.</>
-              : mode === 'formula'
-              ? <><strong className="text-slate-600">Mode Formules</strong> — dépendances détectées automatiquement depuis les formules de cellules.</>
-              : <><strong className="text-slate-600">Mode Structuré</strong> — attend les feuilles : <code className="bg-slate-100 px-1 rounded">Sources</code>, <code className="bg-slate-100 px-1 rounded">Transformations</code>, <code className="bg-slate-100 px-1 rounded">KPIs</code>.</>
-            }
-          </p>
 
           {/* Error */}
           {error && (

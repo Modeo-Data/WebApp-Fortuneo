@@ -4,13 +4,98 @@ import LineageGraph from '../components/LineageGraph.jsx'
 import NodeDrawer from '../components/NodeDrawer.jsx'
 import NodeSelector from '../components/NodeSelector.jsx'
 import UploadModal from '../components/UploadModal.jsx'
-import DiffPicker, { saveRecentSession } from '../components/DiffPicker.jsx'
+import { saveRecentSession } from '../components/DiffPicker.jsx'
 import { getSubgraph, simplifySubgraph } from '../lib/graphUtils.js'
-import { computeDiff } from '../lib/diffUtils.js'
-import { Upload, BarChart3, GitMerge, Database, Download, Diff, X, Link, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { UploadCloud, BarChart3, GitMerge, Database, Download, X, ChevronLeft, ChevronRight, RefreshCw, Loader2, Search, Eye, EyeOff } from 'lucide-react'
 import DarkModeToggle from '../components/DarkModeToggle.jsx'
 
 const ACCENT = '#88c648'
+const TRANSFO_TYPES = new Set(['ingest', 'compute', 'virtual', 'extract', 'collection', 'transformation'])
+
+// ── Catalog browser (shown when no session is loaded) ─────────────────────────
+function CatalogBrowser({ navigate }) {
+  const [nodes, setNodes]       = useState([])
+  const [total, setTotal]       = useState(0)
+  const [query, setQuery]       = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [generating, setGenerating] = useState(null)
+
+  useEffect(() => {
+    setLoading(true)
+    axios.get('/api/catalog/nodes/', { params: { q: query || undefined } })
+      .then(({ data }) => { setNodes(data.nodes ?? []); setTotal(data.total ?? 0) })
+      .catch(() => setNodes([]))
+      .finally(() => setLoading(false))
+  }, [query])
+
+  async function handleGenerate(nodeId) {
+    setGenerating(nodeId)
+    try {
+      const { data } = await axios.post('/api/catalog/graph/', { node_id: nodeId })
+      navigate(`/graph/${data.session_id}`)
+    } catch { setGenerating(null) }
+  }
+
+  return (
+    <div className="flex flex-col h-full border-r overflow-hidden"
+      style={{ width: 300, minWidth: 300, background: 'var(--hp-header-bg)', borderColor: 'var(--hp-border)' }}>
+      <div className="px-4 pt-4 pb-3 border-b shrink-0" style={{ borderColor: 'var(--hp-border)' }}>
+        <p className="text-xs font-bold mb-2" style={{ color: 'var(--hp-text)' }}>
+          Catalogue <span className="font-normal ml-1" style={{ color: 'var(--hp-muted)' }}>{total} nœuds</span>
+        </p>
+        <div className="flex items-center rounded-lg border px-2.5"
+          style={{ background: 'var(--hp-search-bg)', borderColor: 'var(--hp-border)' }}>
+          <Search size={11} style={{ color: 'var(--hp-muted)', flexShrink: 0 }} />
+          <input
+            type="text" value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Filtrer…"
+            className="flex-1 bg-transparent outline-none py-1.5 px-2 text-[11px]"
+            style={{ color: 'var(--hp-search-text)', caretColor: ACCENT }}
+          />
+          {query && <button onClick={() => setQuery('')} style={{ color: 'var(--hp-muted)' }}><X size={10} /></button>}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+        {loading ? (
+          <div className="flex items-center gap-2 py-6 justify-center text-xs" style={{ color: 'var(--hp-muted)' }}>
+            <Loader2 size={12} className="animate-spin" /> Chargement…
+          </div>
+        ) : nodes.length === 0 ? (
+          <p className="text-[11px] py-6 text-center" style={{ color: 'var(--hp-muted)' }}>Aucun nœud importé</p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {nodes.map(node => (
+              <button key={node.node_id}
+                onClick={() => handleGenerate(node.node_id)}
+                disabled={!!generating}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all disabled:opacity-60"
+                style={{ background: 'var(--hp-card-bg)', borderColor: 'var(--hp-border)' }}
+                onMouseEnter={e => { if (!generating) e.currentTarget.style.borderColor = `${ACCENT}55` }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--hp-border)' }}
+              >
+                {generating === node.node_id
+                  ? <Loader2 size={11} style={{ color: ACCENT, flexShrink: 0 }} className="animate-spin" />
+                  : <Database size={11} style={{ color: ACCENT, flexShrink: 0 }} />
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate" style={{ color: 'var(--hp-text)' }}>{node.label}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--hp-muted)' }}>{node.type}</p>
+                </div>
+              </button>
+            ))}
+            {nodes.length === 200 && (
+              <p className="text-[10px] text-center pt-1" style={{ color: 'var(--hp-dim)' }}>
+                200 premiers — affinez la recherche
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 
 // ── Canvas placeholder ────────────────────────────────────────────────────────
@@ -49,16 +134,27 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   const [showModal, setShowModal]       = useState(false)
   const [uploading, setUploading]       = useState(false)
   const [uploadError, setUploadError]   = useState(null)
-  const [showDiffPicker, setShowDiffPicker] = useState(false)
-  const [diffBase, setDiffBase]         = useState(null) // { sessionId, nodes, edges }
-  const [removedDrawer, setRemovedDrawer] = useState(null) // node from base shown in drawer
-  const [copied, setCopied]             = useState(false)
-  const [drawerOpen, setDrawerOpen]         = useState(false)
+  const [drawerOpen, setDrawerOpen]     = useState(false)
+  const [refreshing, setRefreshing]     = useState(false)
+  const [hideHierarchy, setHideHierarchy] = useState(false)
+  const [insightIds, setInsightIds]       = useState(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [exportScope, setExportScope]       = useState('full')   // 'full' | 'subgraph'
+  const [exportOptions, setExportOptions]   = useState([])       // built on menu open
 
   useEffect(() => {
     setRestoring(true); setFocusedNode(null)
     setSelectedNode(null); setDrawerNode(null); setError(null); setWarnings([]); setDrawerOpen(false)
     // Keep previous lineageData so the left panel stays mounted during loading
+
+    if (!sessionId) {
+      // Auto-load the full catalog
+      axios.post('/api/catalog/graph/', {})
+        .then(({ data }) => navigate(`/graph/${data.session_id}`))
+        .catch(() => { setLineageData(null); setRestoring(false) })
+      return
+    }
 
     axios.get('/api/session/', { headers: { 'X-Session-ID': sessionId } })
       .then(({ data }) => {
@@ -78,7 +174,7 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
     const found = lineageData.nodes.find(n => n.id === nodeId)
     if (found) {
       setFocusedNode(found)
-      setViewMode(found.type === 'transformation' ? 'complete' : 'simplified')
+      setViewMode(TRANSFO_TYPES.has(found.type) ? 'complete' : 'simplified')
       // Keep drawer in sync: if drawer was open, update it to the restored node
       setDrawerNode(prev => prev ? found : null)
     }
@@ -87,13 +183,44 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
 
   // Close drawer when no graph is open
   useEffect(() => {
-    if (!focusedNode) { setDrawerNode(null); setRemovedDrawer(null); setDrawerOpen(false) }
-  }, [focusedNode])
+    if (!focusedNode && !showSuggestions) { setDrawerNode(null); setDrawerOpen(false) }
+  }, [focusedNode, showSuggestions])
 
-  // Keep URL in sync with the focused node
+  // Open suggestions panel with history entry
+  function openSuggestions() {
+    setShowSuggestions(true)
+    setDrawerNode(null)
+    setDrawerOpen(true)
+    window.history.pushState({ suggestions: true }, '')
+  }
+
+  // Close suggestions and go back in history
+  function closeSuggestions() {
+    setShowSuggestions(false)
+  }
+
+  // Listen for popstate to close suggestions on browser back
   useEffect(() => {
+    function onPop(e) {
+      if (showSuggestions) {
+        setShowSuggestions(false)
+        e.stopImmediatePropagation?.()
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [showSuggestions])
+
+  // Keep URL in sync with the focused node.
+  // pushState so the browser back button navigates between previously viewed nodes.
+  // The equality guard prevents duplicate entries on initial URL restore.
+  useEffect(() => {
+    if (!sessionId) return
     const base = `/graph/${sessionId}`
-    navigate(focusedNode ? `${base}?node=${focusedNode.id}` : base)
+    const target = focusedNode ? `${base}?node=${focusedNode.id}` : base
+    if (target !== window.location.pathname + window.location.search) {
+      window.history.pushState(null, '', target)
+    }
   }, [focusedNode, sessionId])
 
   const fullSubgraph = useMemo(() => {
@@ -101,41 +228,72 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
     return getSubgraph(focusedNode.id, lineageData.nodes, lineageData.edges)
   }, [focusedNode, lineageData])
 
-  const showToggle = focusedNode && focusedNode.type !== 'transformation'
+  const isTransfoNode = focusedNode && TRANSFO_TYPES.has(focusedNode.type)
+  const showToggle    = !!focusedNode && !isTransfoNode
+
+  const HIERARCHY_TYPES = new Set(['feature', 'component'])
+
+  // Insight-driven subgraph: compute getSubgraph for each insight node, merge results
+  const insightSubgraph = useMemo(() => {
+    if (!insightIds || !lineageData) return null
+    const mergedNodes = new Map()
+    const mergedEdges = new Map()
+    for (const id of insightIds) {
+      if (!lineageData.nodes.find(n => n.id === id)) continue
+      const sg = getSubgraph(id, lineageData.nodes, lineageData.edges)
+      sg.nodes.forEach(n => mergedNodes.set(n.id, n))
+      sg.edges.forEach(e => mergedEdges.set(`${e.source}→${e.target}`, e))
+    }
+    return { nodes: [...mergedNodes.values()], edges: [...mergedEdges.values()] }
+  }, [insightIds, lineageData])
 
   const subgraph = useMemo(() => {
+    if (insightSubgraph) return insightSubgraph
     if (!fullSubgraph) return null
-    if (!showToggle || viewMode === 'complete') return fullSubgraph
-    return simplifySubgraph(fullSubgraph)
-  }, [fullSubgraph, viewMode, showToggle])
+    let sg = (isTransfoNode || viewMode === 'complete') ? fullSubgraph : simplifySubgraph(fullSubgraph)
+    if (hideHierarchy) {
+      const filteredNodes = sg.nodes.filter(n => !HIERARCHY_TYPES.has(n.type))
+      const filteredIds   = new Set(filteredNodes.map(n => n.id))
+      sg = { nodes: filteredNodes, edges: sg.edges.filter(e => filteredIds.has(e.source) && filteredIds.has(e.target)) }
+    }
+    return sg
+  }, [insightSubgraph, fullSubgraph, viewMode, isTransfoNode, hideHierarchy])
 
-  async function handleUpload(files, mode, name) {
+  async function handleUpload(files) {
     setUploading(true); setUploadError(null)
     const formData = new FormData()
     files.forEach(f => formData.append('file', f))
-    formData.append('mode', mode)
-    if (name) formData.append('name', name)
     try {
-      const { data } = await axios.post('/api/upload/', formData, {
+      await axios.post('/api/catalog/import/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setShowModal(false)
+      // Reload full catalog as a new session
+      const { data } = await axios.post('/api/catalog/graph/', {})
       navigate(`/graph/${data.session_id}`)
     } catch (err) {
-      setUploadError(err.response?.data?.error ?? 'Upload failed.')
+      setUploadError(err.response?.data?.error ?? 'Erreur lors de l\'import.')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handleCatalogRefresh() {
+    if (!lineageData?.seed_node_id) return
+    setRefreshing(true)
+    try {
+      const { data } = await axios.post('/api/catalog/graph/', { node_id: lineageData.seed_node_id })
+      navigate(`/graph/${data.session_id}`)
+    } catch {
+      // silently ignore — graph stays as-is
+    } finally {
+      setRefreshing(false)
     }
   }
 
   const allNodes = lineageData?.nodes ?? []
   const allEdges = lineageData?.edges ?? []
   const isInitializing = restoring && !lineageData  // true only on very first load
-
-  const diffResult = useMemo(
-    () => diffBase ? computeDiff(allNodes, diffBase.nodes) : null,
-    [allNodes, diffBase],
-  )
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -172,62 +330,102 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
         {/* Right-side actions — global only */}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => { setUploadError(null); setShowModal(true) }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-colors"
             style={{ background: ACCENT }}
             onMouseEnter={e => e.currentTarget.style.background = '#6aaf35'}
             onMouseLeave={e => e.currentTarget.style.background = ACCENT}>
-            <Upload size={13} /> Nouveau graphe
+            <UploadCloud size={13} /> Importer
           </button>
           <DarkModeToggle />
         </div>
       </header>
 
-      {/* Sub-bar — contextual actions, visible when a graph is loaded */}
+      {/* Sub-bar — clean contextual actions */}
       {lineageData && !isInitializing && (
         <div className="flex items-center px-4 shrink-0 border-b"
           style={{ background: 'var(--hp-header-bg)', borderColor: 'var(--hp-border)', minHeight: 36 }}>
 
-          {/* Right: contextual actions */}
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              onClick={() => { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition-colors"
-              style={{ background: 'transparent', borderColor: 'transparent', color: copied ? '#16a34a' : 'var(--hp-text-muted, #94a3b8)' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-            >
-              {copied ? <Check size={11} /> : <Link size={11} />}
-              {copied ? 'Copié !' : 'Partager'}
-            </button>
+          <div className="ml-auto flex items-center gap-1 relative">
+            {/* Export dropdown — attached below the button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  if (showExportMenu) { setShowExportMenu(false); return }
+                  const opts = [{ key: 'full', label: `Graphe complet (${allNodes.length}n)` }]
+                  if (subgraph && focusedNode) opts.push({ key: 'subgraph', label: `${focusedNode.label} (${subgraph.nodes.length}n)` })
+                  setExportOptions(opts)
+                  setExportScope(subgraph && focusedNode ? 'subgraph' : 'full')
+                  setShowExportMenu(true)
+                }}
+                className="peer w-7 h-7 rounded flex items-center justify-center border transition-colors"
+                style={{ background: showExportMenu ? 'var(--hp-search-bg)' : 'transparent', borderColor: showExportMenu ? 'var(--hp-border)' : 'transparent', color: 'var(--hp-text-muted, #94a3b8)' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}
+                onMouseLeave={e => { if (!showExportMenu) e.currentTarget.style.borderColor = 'transparent' }}
+              >
+                <Download size={13} />
+              </button>
+              {!showExportMenu && (
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-1 rounded text-[10px] font-medium text-white whitespace-nowrap pointer-events-none opacity-0 peer-hover:opacity-100 transition-opacity"
+                  style={{ background: '#1e293b' }}>
+                  Télécharger
+                </div>
+              )}
+              {showExportMenu && (() => {
+                const src = exportScope === 'subgraph' && subgraph ? subgraph : lineageData
+                const prefix = exportScope === 'subgraph' && focusedNode ? focusedNode.label.replace(/\s+/g, '_') : 'lineage'
+                function dl(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u) }
+                return (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border shadow-lg overflow-hidden"
+                      style={{ background: 'var(--hp-header-bg)', borderColor: 'var(--hp-border)' }}>
 
-            <button
-              onClick={() => {
-                const payload = { session_id: sessionId, exported_at: new Date().toISOString(), mode: lineageData.mode, nodes: lineageData.nodes, edges: lineageData.edges }
-                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a'); a.href = url; a.download = `lineage-${sessionId}.json`; a.click()
-                URL.revokeObjectURL(url)
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition-colors"
-              style={{ background: 'transparent', borderColor: 'transparent', color: 'var(--hp-text-muted, #94a3b8)' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--hp-border)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-            >
-              <Download size={11} /> Exporter
-            </button>
+                      {/* Scope selector */}
+                      {exportOptions.length > 1 && (
+                        <div className="px-2 pt-2 pb-1">
+                          <select value={exportScope} onChange={e => setExportScope(e.target.value)}
+                            className="w-full text-[10px] font-medium rounded-md border px-2 py-1.5 outline-none"
+                            style={{ background: 'var(--hp-search-bg)', borderColor: 'var(--hp-border)', color: 'var(--hp-text)' }}>
+                            {exportOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {exportOptions.length <= 1 && (
+                        <div className="px-3 pt-2 pb-1">
+                          <p className="text-[10px] font-medium" style={{ color: 'var(--hp-text-muted, #94a3b8)' }}>
+                            {exportOptions[0]?.label ?? 'Graphe complet'}
+                          </p>
+                        </div>
+                      )}
 
-            <button
-              onClick={() => diffBase ? setDiffBase(null) : setShowDiffPicker(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition-colors"
-              style={diffBase
-                ? { background: '#fef3c7', borderColor: '#fcd34d', color: '#92400e' }
-                : { background: 'transparent', borderColor: 'transparent', color: 'var(--hp-text-muted, #94a3b8)' }}
-              onMouseEnter={e => { if (!diffBase) e.currentTarget.style.borderColor = 'var(--hp-border)' }}
-              onMouseLeave={e => { if (!diffBase) e.currentTarget.style.borderColor = 'transparent' }}
-            >
-              <Diff size={11} />
-              {diffBase ? 'Fin de comparaison' : 'Comparer'}
-            </button>
+                      <div className="py-1">
+                        {[
+                          { label: 'JSON', fn: () => {
+                            dl(new Blob([JSON.stringify({ exported_at: new Date().toISOString(), nodes: src.nodes, edges: src.edges }, null, 2)], { type: 'application/json' }), `${prefix}.json`)
+                          }},
+                          { label: 'CSV (nœuds)', fn: () => {
+                            const rows = src.nodes.map(n => [n.id, n.label, n.type, n.stage ?? '', n.sheet ?? ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+                            dl(new Blob(['id,label,type,stage,sheet\n' + rows], { type: 'text/csv' }), `${prefix}_nodes.csv`)
+                          }},
+                          { label: 'CSV (arêtes)', fn: () => {
+                            const rows = src.edges.map(e => [e.source, e.target, e.action ?? ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+                            dl(new Blob(['source,target,action\n' + rows], { type: 'text/csv' }), `${prefix}_edges.csv`)
+                          }},
+                        ].map(({ label, fn }) => (
+                          <button key={label} onClick={() => { fn(); setShowExportMenu(false) }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-medium transition-colors text-left"
+                            style={{ color: 'var(--hp-text)' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover, rgba(0,0,0,0.04))'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
 
             <div className="w-px h-4 mx-1 bg-slate-200" />
 
@@ -245,46 +443,19 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
         </div>
       )}
 
-      {warnings.length > 0 && (
-        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 flex items-center gap-2 text-xs text-amber-700 shrink-0">
-          <span>⚠️</span><span>{warnings.join(' · ')}</span>
-          <button onClick={() => setWarnings([])} className="ml-auto text-amber-400 hover:text-amber-600">✕</button>
-        </div>
-      )}
-
-      {diffResult && (
-        <div className="border-b px-5 py-2 flex items-center gap-3 text-xs shrink-0"
-          style={{ background: '#fffbf0', borderColor: '#fcd34d' }}>
-          <Diff size={13} style={{ color: '#d97706', flexShrink: 0 }} />
-          <span className="font-semibold" style={{ color: '#92400e' }}>
-            Comparaison activée
-          </span>
-          <span className="text-slate-400">·</span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-            <span style={{ color: '#15803d' }}>{diffResult.added.length} ajouté{diffResult.added.length !== 1 ? 's' : ''}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-            <span style={{ color: '#92400e' }}>{diffResult.changed.length} modifié{diffResult.changed.length !== 1 ? 's' : ''}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />
-            <span className="text-slate-500">{diffResult.removed.length} supprimé{diffResult.removed.length !== 1 ? 's' : ''}</span>
-          </span>
-          {diffResult.removed.length > 0 && (
-            <span className="text-slate-400 ml-1 truncate max-w-xs hidden sm:inline">
-              ({diffResult.removed.map(n => n.label).join(', ')})
-            </span>
-          )}
-          <button onClick={() => setDiffBase(null)} className="ml-auto text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={13} />
-          </button>
-        </div>
-      )}
-
       {/* Body: left panel + canvas */}
       <div className="flex-1 flex overflow-hidden relative">
+
+        {/* No session: show catalog browser */}
+        {!sessionId && !restoring && (
+          <>
+            <CatalogBrowser navigate={navigate} />
+            <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-3">
+              <BarChart3 size={36} className="text-slate-200" />
+              <p className="text-sm text-slate-400">Sélectionnez un nœud pour visualiser son lignage</p>
+            </div>
+          </>
+        )}
 
         {isInitializing && (
           <div className="absolute inset-0 flex items-center justify-center gap-3 text-slate-400 z-10 bg-slate-50">
@@ -310,10 +481,10 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
               nodes={allNodes}
               edges={allEdges}
               selectedNodeId={focusedNode?.id}
-              onSelect={node => { setFocusedNode(node); setSelectedNode(null); setDrawerNode(drawerOpen ? node : null); setViewMode(node.type === 'transformation' ? 'complete' : 'simplified') }}
-              onDiffSelect={node => { setRemovedDrawer(null); setFocusedNode(node); setSelectedNode(node); setDrawerNode(node); setDrawerOpen(true); setViewMode('simplified') }}
-              onDiffRemoved={node => { setRemovedDrawer(node); setDrawerNode(node); setDrawerOpen(true) }}
-              diffResult={diffResult}
+              onSelect={node => {
+                if (showSuggestions) { window.history.back(); setShowSuggestions(false) }
+                setInsightIds(null); setFocusedNode(node); setSelectedNode(null); setDrawerNode(drawerOpen ? node : null); setViewMode(TRANSFO_TYPES.has(node.type) ? 'complete' : 'simplified')
+              }}
             />
 
             <div className="flex-1 relative overflow-hidden">
@@ -325,16 +496,31 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
               )}
               {!subgraph && !restoring && <CanvasPlaceholder nodeCount={allNodes.length} />}
 
-              {showToggle && (
-                <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 border rounded-lg p-0.5 shadow-sm"
-                  style={{ background: 'var(--tab-active-bg)', borderColor: 'var(--hp-border)' }}>
-                  {['simplified', 'complete'].map(mode => (
-                    <button key={mode} onClick={() => setViewMode(mode)}
-                      className="px-3 py-1 rounded-md text-[11px] font-semibold transition-all"
-                      style={viewMode === mode ? { background: ACCENT, color: 'white' } : { color: '#94A3B8' }}>
-                      {mode === 'simplified' ? 'Simplifié' : 'Complet'}
-                    </button>
-                  ))}
+              {focusedNode && (
+                <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                  {/* Hide hierarchy toggle */}
+                  <button onClick={() => setHideHierarchy(h => !h)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border shadow-sm text-[11px] font-semibold transition-all"
+                    style={hideHierarchy
+                      ? { background: ACCENT, color: 'white', borderColor: ACCENT }
+                      : { background: 'var(--tab-active-bg)', borderColor: 'var(--hp-border)', color: '#94A3B8' }}>
+                    {hideHierarchy ? <EyeOff size={12} /> : <Eye size={12} />}
+                    Hiérarchie
+                  </button>
+
+                  {/* Simplified / Complete toggle */}
+                  {showToggle && (
+                    <div className="flex items-center gap-0.5 border rounded-lg p-0.5 shadow-sm"
+                      style={{ background: 'var(--tab-active-bg)', borderColor: 'var(--hp-border)' }}>
+                      {['simplified', 'complete'].map(mode => (
+                        <button key={mode} onClick={() => setViewMode(mode)}
+                          className="px-3 py-1 rounded-md text-[11px] font-semibold transition-all"
+                          style={viewMode === mode ? { background: ACCENT, color: 'white' } : { color: '#94A3B8' }}>
+                          {mode === 'simplified' ? 'Simplifié' : 'Complet'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -344,11 +530,14 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
                 <LineageGraph
                   nodes={subgraph.nodes}
                   edges={subgraph.edges}
-                  onNodeClick={node => { setSelectedNode(node); setDrawerNode(node); setDrawerOpen(true) }}
+                  onNodeClick={node => {
+                    if (showSuggestions) { window.history.back(); setShowSuggestions(false) }
+                    setSelectedNode(node); setDrawerNode(node); setDrawerOpen(true)
+                  }}
                   onDropdownItemClick={item => { setSelectedNode(null); setDrawerNode(item); setDrawerOpen(true) }}
-                  onPaneClick={() => { setSelectedNode(null); setDrawerNode(null); setDrawerOpen(false) }}
+                  onPaneClick={() => { setSelectedNode(null); setDrawerNode(null); if (!showSuggestions) setDrawerOpen(false) }}
                   selectedNodeId={selectedNode?.id}
-                  diffStatusMap={diffResult?.statusMap ?? null}
+                  insightIds={insightIds}
                   drawerOpen={drawerOpen}
                 />
               )}
@@ -364,17 +553,17 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
               node={drawerNode}
               nodes={allNodes}
               edges={allEdges}
-              edgesOverride={removedDrawer ? diffBase?.edges : null}
-              nodesOverride={removedDrawer ? diffBase?.nodes : null}
-              isRemovedNode={!!removedDrawer}
               isOpen={drawerOpen}
               onClose={() => { setDrawerOpen(false); setRemovedDrawer(null) }}
               onNavigate={node => {
-                setRemovedDrawer(null)
-                setDrawerNode(node)
+                                setDrawerNode(node)
                 const found = allNodes.find(n => n.id === node.id)
                 if (found) setFocusedNode(found)
               }}
+              onHighlight={ids => { setInsightIds(new Set(ids)); setFocusedNode(null); setDrawerNode(null) }}
+              showSuggestions={showSuggestions}
+              onOpenSuggestions={openSuggestions}
+              onCloseSuggestions={() => { window.history.back(); closeSuggestions() }}
               sessionId={sessionId}
             />
           </>
@@ -383,6 +572,7 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
 
       {showModal && (
         <UploadModal
+          catalogMode
           onUpload={handleUpload}
           loading={uploading}
           error={uploadError}
@@ -390,13 +580,6 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
         />
       )}
 
-      {showDiffPicker && (
-        <DiffPicker
-          currentSessionId={sessionId}
-          onSelect={base => { setDiffBase(base); setShowDiffPicker(false) }}
-          onClose={() => setShowDiffPicker(false)}
-        />
-      )}
     </div>
   )
 }
