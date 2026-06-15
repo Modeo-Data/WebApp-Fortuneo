@@ -1,8 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
-import { Database, GitMerge, LayoutDashboard, ChevronRight, ArrowRight, Sparkles, Loader2, FileCode2, FileJson, AlignLeft, Lightbulb } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Database, GitMerge, LayoutDashboard, ChevronRight, ArrowRight, Sparkles, Loader2, FileCode2, FileJson, AlignLeft, Lightbulb, Compass } from 'lucide-react'
 import axios from 'axios'
 import { usePanelNav } from '../hooks/usePanelNav.js'
 import InsightsPanel from './InsightsPanel.jsx'
+import { getNodeColor, getNodeLabel } from '../lib/nodeTypes.js'
+
+// Memoised list of the most-connected nodes — used as quick entry points
+// in the empty drawer placeholder.
+function useTopConnected(nodes, edges, limit) {
+  return useMemo(() => {
+    if (!nodes?.length) return []
+    const degree = new Map()
+    for (const e of edges ?? []) {
+      degree.set(e.source, (degree.get(e.source) ?? 0) + 1)
+      degree.set(e.target, (degree.get(e.target) ?? 0) + 1)
+    }
+    return [...nodes]
+      .map(n => ({ ...n, _degree: degree.get(n.id) ?? 0 }))
+      .filter(n => n._degree > 0)
+      .sort((a, b) => b._degree - a._degree)
+      .slice(0, limit)
+  }, [nodes, edges, limit])
+}
 
 // usePanelNav is kept solely for gesture interception (trackpad, keyboard, mouse buttons).
 // Navigation state (canGoBack) is driven externally via props so it stays in sync with
@@ -70,6 +89,9 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
   const [explaining, setExplaining]     = useState(false)
   const [explainError, setExplainError] = useState(null)
 
+  // Top connected nodes — surfaced in the empty placeholder as quick entry points
+  const topConnected = useTopConnected(nodes, edges, 5)
+
   useEffect(() => { setExplanation(null); setExplainError(null) }, [node?.id])
 
   // ── Gesture interception only — back/forward are wired to browser history ────
@@ -132,9 +154,8 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
     <aside
       {...nav.panelProps}
       className={`relative h-full shrink-0 bg-white flex flex-col
-        border-l border-slate-200 shadow-2xl
-        transition-[width] duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'w-[340px]' : 'w-0'}`}
+        border-l border-slate-200 shadow-2xl overflow-hidden nd-shell
+        ${isOpen ? 'w-[340px] nd-open' : 'w-0'}`}
     >
       {/* Languette — peeks out over the canvas left edge */}
       {isOpen && (
@@ -147,22 +168,23 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
         </button>
       )}
       {/* Fixed-width inner wrapper so content never reflows during the width animation */}
-      <div className="w-[340px] flex flex-col h-full">
+      <div className="w-[340px] flex flex-col h-full nd-content">
 
       {showSuggestions ? (
         <>
           {/* ── Suggestions panel ────────────────────────────────────────────── */}
-          <div className="px-4 py-3 shrink-0 border-b border-slate-200 flex items-center gap-2"
-            style={{ background: '#fef3c7' }}>
+          <div className="px-4 py-3 shrink-0 flex items-center gap-2 border-b"
+            style={{ background: 'var(--suggest-header-bg)', borderColor: 'var(--suggest-border)' }}>
             <button onClick={onCloseSuggestions}
               className="w-6 h-6 rounded-md flex items-center justify-center transition-colors"
-              style={{ color: '#92400e' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
+              style={{ color: 'var(--suggest-header-fg)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--suggest-bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
             </button>
-            <Lightbulb size={13} style={{ color: '#f59e0b' }} />
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#92400e' }}>
+            <Lightbulb size={13} style={{ color: 'var(--suggest-icon)' }} />
+            <p className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: 'var(--suggest-header-fg)' }}>
               Suggestions
             </p>
           </div>
@@ -324,10 +346,10 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
             <p className="text-[10px] text-slate-400 font-mono truncate flex-1 mr-2">{node.id}</p>
             <button onClick={onOpenSuggestions} title="Suggestions"
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
-              style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fef3c7'}>
-              <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+              style={{ background: 'var(--suggest-bg)', border: '1px solid var(--suggest-border)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--suggest-bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--suggest-bg)'}>
+              <Lightbulb size={13} style={{ color: 'var(--suggest-icon)' }} />
             </button>
           </div>
         </>
@@ -342,22 +364,65 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
             </p>
             <button onClick={onOpenSuggestions} title="Suggestions"
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
-              style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#fde68a'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fef3c7'}>
-              <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+              style={{ background: 'var(--suggest-bg)', border: '1px solid var(--suggest-border)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--suggest-bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--suggest-bg)'}>
+              <Lightbulb size={13} style={{ color: 'var(--suggest-icon)' }} />
             </button>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-              <Lightbulb size={22} className="text-slate-300" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-500 mb-1.5">Aucun nœud sélectionné</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Cliquez sur un nœud du graphe ou utilisez le panneau de gauche.
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+            <div className="rounded-lg border p-3"
+              style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-card-bg, white)' }}>
+              <p className="text-[11px] font-semibold" style={{ color: 'var(--hp-text)' }}>Aucun nœud sélectionné</p>
+              <p className="text-[10px] mt-0.5 leading-relaxed" style={{ color: 'var(--hp-subtext)' }}>
+                Clique sur un nœud du graphe, ou pioche dans les suggestions ci-dessous.
               </p>
+              <button onClick={onOpenSuggestions}
+                className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all"
+                style={{
+                  background:  'var(--suggest-bg)',
+                  border:      '1px solid var(--suggest-border)',
+                  color:       'var(--suggest-header-fg)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--suggest-bg-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--suggest-bg)'}>
+                <Lightbulb size={11} style={{ color: 'var(--suggest-icon)' }} /> Ouvrir les suggestions
+              </button>
             </div>
+
+            {topConnected.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 px-1 mb-1.5">
+                  <Compass size={11} style={{ color: 'var(--hp-subtext)' }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--hp-subtext)' }}>
+                    Nœuds les plus connectés
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {topConnected.map(n => {
+                    const tint = getNodeColor(n.type)
+                    return (
+                      <button key={n.id}
+                        onClick={() => onNavigate(n)}
+                        className="text-left rounded-lg border px-2.5 py-1.5 transition-all hover:shadow-sm flex items-center gap-2"
+                        style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-card-bg, white)' }}>
+                        <span className="w-1.5 h-7 rounded-full shrink-0" style={{ background: tint }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--hp-text)' }}>{n.label}</p>
+                          <p className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--hp-subtext)' }}>
+                            {getNodeLabel(n.type)}
+                          </p>
+                        </div>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: `${tint}15`, color: tint, border: `1px solid ${tint}30` }}>
+                          {n._degree} liens
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           <div className="border-t border-slate-200 px-5 py-2 bg-slate-100 shrink-0 flex items-center justify-end">
             <span className="text-[10px] font-semibold" style={{ color: '#88c648' }}>nexus-explorer</span>

@@ -8,6 +8,7 @@ import {
   History, UploadCloud, HardDrive,
 } from 'lucide-react'
 import DarkModeToggle from '../components/DarkModeToggle.jsx'
+import TypePills from '../components/TypePills.jsx'
 
 const ACCENT = '#88c648'
 
@@ -142,8 +143,6 @@ export default function HomePage({ navigate }) {
   const [loadingGraph, setLoadingGraph] = useState(false)
   const [insights, setInsights]       = useState(null)
   const [generating, setGenerating]   = useState(null)
-  const [openPill, setOpenPill]       = useState(null)  // type key of open pill menu
-  const [pillPage, setPillPage]       = useState(0)
 
   useEffect(() => {
     axios.get('/api/catalog/nodes/')
@@ -248,106 +247,18 @@ export default function HomePage({ navigate }) {
       </section>
 
       {/* ── Type pills ── */}
-      {totalNodes > 0 && (() => {
-        const PAGE_SIZE = 8
-        return (
-          <div className="max-w-3xl mx-auto w-full px-6 pb-4">
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              {TYPE_PILLS.filter(p => CLICKABLE_TYPES.has(p.type)).map(({ type, label, Icon, color }) => {
-                const count = stats[type] ?? 0
-                if (!count) return null
-                const isOpen = openPill === type
-                const items = catalogNodes.filter(n => n.type === type)
-                const totalPages = Math.ceil(items.length / PAGE_SIZE)
-                const page = isOpen ? pillPage : 0
-                const pageItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-                return (
-                  <div key={type} className="relative">
-                    <button
-                      onClick={() => { if (isOpen) { setOpenPill(null) } else { setOpenPill(type); setPillPage(0) } }}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all cursor-pointer"
-                      style={{
-                        borderColor: isOpen ? color : 'var(--hp-border)',
-                        background: isOpen ? `${color}12` : 'var(--hp-card-bg)',
-                        boxShadow: isOpen ? `0 0 0 1px ${color}30` : 'none',
-                      }}
-                      onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}10` } }}
-                      onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'var(--hp-border)'; e.currentTarget.style.background = 'var(--hp-card-bg)' } }}>
-                      <Icon size={9} style={{ color }} />
-                      <span className="text-[11px] font-bold" style={{ color }}>{count}</span>
-                      <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>{label}</span>
-                    </button>
-
-                    {isOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setOpenPill(null)} />
-                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-52 rounded-lg border shadow-lg z-50 overflow-hidden"
-                          style={{ background: 'var(--hp-header-bg)', borderColor: 'var(--hp-border)' }}>
-
-                          <div className="py-1">
-                            {pageItems.map(n => (
-                              <button key={n.node_id} onClick={() => handleOpenNode(n.node_id)}
-                                disabled={!!generating}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors disabled:opacity-50"
-                                onMouseEnter={e => e.currentTarget.style.background = `${color}08`}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                {generating === n.node_id
-                                  ? <Loader2 size={9} style={{ color }} className="animate-spin shrink-0" />
-                                  : <Icon size={9} style={{ color, flexShrink: 0 }} />
-                                }
-                                <span className="text-[11px] font-medium truncate" style={{ color: 'var(--hp-text)' }}>{n.label}</span>
-                                <ArrowRight size={9} className="ml-auto shrink-0" style={{ color: 'var(--hp-dim)' }} />
-                              </button>
-                            ))}
-                          </div>
-
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-3 py-1.5 border-t" style={{ borderColor: 'var(--hp-border)' }}>
-                              <button onClick={() => setPillPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-30"
-                                style={{ color: 'var(--hp-muted)' }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover, rgba(0,0,0,0.04))'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                ← Préc.
-                              </button>
-                              <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>
-                                {page + 1} / {totalPages}
-                              </span>
-                              <button onClick={() => setPillPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-30"
-                                style={{ color: 'var(--hp-muted)' }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover, rgba(0,0,0,0.04))'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                Suiv. →
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-
-              <div className="w-px h-4" style={{ background: 'var(--hp-border)' }} />
-
-              {TYPE_PILLS.filter(p => !CLICKABLE_TYPES.has(p.type)).map(({ type, label, Icon, color }) => {
-                const count = stats[type] ?? 0
-                if (!count) return null
-                return (
-                  <div key={type}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border opacity-60"
-                    style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-card-bg)' }}>
-                    <Icon size={9} style={{ color }} />
-                    <span className="text-[11px] font-bold" style={{ color }}>{count}</span>
-                    <span className="text-[9px] font-medium" style={{ color: 'var(--hp-muted)' }}>{label}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
+      {totalNodes > 0 && (
+        <div className="max-w-3xl mx-auto w-full px-6 pb-4">
+          <TypePills
+            pills={TYPE_PILLS}
+            clickableTypes={CLICKABLE_TYPES}
+            stats={stats}
+            catalogNodes={catalogNodes}
+            onSelectNode={handleOpenNode}
+            generating={generating}
+          />
+        </div>
+      )}
 
       {/* ── CTA: Explorer le catalogue ── */}
       <div className="max-w-3xl mx-auto w-full px-6 pb-6">

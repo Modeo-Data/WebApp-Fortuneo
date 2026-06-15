@@ -8,6 +8,8 @@ import { saveRecentSession } from '../components/DiffPicker.jsx'
 import { getSubgraph, simplifySubgraph } from '../lib/graphUtils.js'
 import { UploadCloud, BarChart3, GitMerge, Database, Download, X, ChevronLeft, ChevronRight, RefreshCw, Loader2, Search, Eye, EyeOff } from 'lucide-react'
 import DarkModeToggle from '../components/DarkModeToggle.jsx'
+import GlobalSearch from '../components/GlobalSearch.jsx'
+import { useSuggestionsState } from '../hooks/useSuggestionsState.js'
 
 const ACCENT = '#88c648'
 const TRANSFO_TYPES = new Set(['ingest', 'compute', 'virtual', 'extract', 'collection', 'transformation'])
@@ -138,7 +140,6 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   const [refreshing, setRefreshing]     = useState(false)
   const [hideHierarchy, setHideHierarchy] = useState(false)
   const [insightIds, setInsightIds]       = useState(null)
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [exportScope, setExportScope]       = useState('full')   // 'full' | 'subgraph'
   const [exportOptions, setExportOptions]   = useState([])       // built on menu open
@@ -181,35 +182,12 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
   }, [lineageData, nodeId])
 
 
-  // Close drawer when no graph is open
+  const { showSuggestions, openSuggestions, closeSuggestions } =
+    useSuggestionsState({ drawerNode, setDrawerNode, setDrawerOpen })
+
   useEffect(() => {
-    if (!focusedNode && !showSuggestions) { setDrawerNode(null); setDrawerOpen(false) }
-  }, [focusedNode, showSuggestions])
-
-  // Open suggestions panel with history entry
-  function openSuggestions() {
-    setShowSuggestions(true)
-    setDrawerNode(null)
-    setDrawerOpen(true)
-    window.history.pushState({ suggestions: true }, '')
-  }
-
-  // Close suggestions and go back in history
-  function closeSuggestions() {
-    setShowSuggestions(false)
-  }
-
-  // Listen for popstate to close suggestions on browser back
-  useEffect(() => {
-    function onPop(e) {
-      if (showSuggestions) {
-        setShowSuggestions(false)
-        e.stopImmediatePropagation?.()
-      }
-    }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [showSuggestions])
+    if (!focusedNode && !showSuggestions && !drawerNode) { setDrawerOpen(false) }
+  }, [focusedNode, showSuggestions, drawerNode])
 
   // Keep URL in sync with the focused node.
   // pushState so the browser back button navigates between previously viewed nodes.
@@ -329,6 +307,21 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
 
         {/* Right-side actions — global only */}
         <div className="ml-auto flex items-center gap-2">
+          <GlobalSearch
+            currentSessionId={sessionId}
+            onSelect={r => {
+              if (r.session_id === sessionId) {
+                const local = allNodes.find(n => n.id === r.node_id)
+                if (local) {
+                  setFocusedNode(local)
+                  setDrawerNode(local)
+                  setDrawerOpen(true)
+                }
+              } else {
+                navigate(`/graph/${r.session_id}/${encodeURIComponent(r.node_id)}`)
+              }
+            }}
+          />
           <button onClick={() => { setUploadError(null); setShowModal(true) }}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-colors"
             style={{ background: ACCENT }}
@@ -410,6 +403,20 @@ export default function GraphPage({ sessionId, nodeId, navigate, goBack }) {
                           { label: 'CSV (arêtes)', fn: () => {
                             const rows = src.edges.map(e => [e.source, e.target, e.action ?? ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
                             dl(new Blob(['source,target,action\n' + rows], { type: 'text/csv' }), `${prefix}_edges.csv`)
+                          }},
+                          { label: 'PNG (graphe)', fn: async () => {
+                            const viewport = document.querySelector('.react-flow__viewport')
+                            if (!viewport) return
+                            const { toPng } = await import('html-to-image')
+                            const dataUrl = await toPng(viewport, {
+                              backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
+                              pixelRatio: 2,
+                              cacheBust: true,
+                            })
+                            const a = document.createElement('a')
+                            a.href = dataUrl
+                            a.download = `${prefix}.png`
+                            a.click()
                           }},
                         ].map(({ label, fn }) => (
                           <button key={label} onClick={() => { fn(); setShowExportMenu(false) }}
