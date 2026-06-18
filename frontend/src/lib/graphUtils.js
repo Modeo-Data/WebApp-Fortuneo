@@ -20,24 +20,82 @@ export function buildCollapsedLabel(items) {
   return parts.join(' · ') || `${items.length} nodes`
 }
 
-// Lane rank per node type — determines X column (left → right)
+// Base lane per node type — determines the starting X column (left → right).
+// All job-types (compute / virtual / ingest / extract) share lane 4: the
+// horizontal position within that group is then refined by topological
+// propagation (a compute reading a DWH written by another compute lands
+// further right). A post-pass after propagation pushes EXTRACTS past every
+// non-extract job node so the "extract is always rightmost" invariant holds
+// regardless of the chain depth.
 const TYPE_LANE = {
   feature:        0,
   component:      1,
-  datalake:       2,  // visually between component and collection
-  collection:     3,
-  collapsed:      3,  // replaces collection (+datalake) in simplified view
-  datawarehouse:  4,
-  // legacy types
+  datalake:       3,
+  collection:     4,   // umbrella for all job-types (job_type lives in metadata)
+  collapsed:      4,
+  datawarehouse:  5,
+  odi_mapping:    4,   // ODI scenarios sit at the job lane and get pushed right by enforceJobOrdering
+  use_case:       8,   // sink (dashboard)
+  // legacy short-format types — kept for backward compat with old sessions
+  ingest:         4,
+  compute:        4,
+  virtual:        4,
+  extract:        4,
   source:         0,
-  ingest:         1,
-  compute:        2,
-  virtual:        2,
-  extract:        2,
-  transformation: 2,
-  use_case:       3,
+  transformation: 4,
 }
-const LANE_SPACING = 320 // px between lane centres
+const LANE_SPACING = 320  // px between lane centres
+
+// Canonical horizontal ordering of job-types (left → right).
+// Each consecutive group must end up on lanes strictly greater than the
+// previous group, regardless of chain depth.
+const JOB_TYPE_ORDER = ['ingest', 'compute', 'virtual', 'extract', 'odi_mapping']
+
+// Sub-classification of a collection node — defaults to its own type
+// for legacy long-format nodes that pre-date the unified model.
+function jobTypeOf(node) {
+  if (node.type === 'collection') return node.metadata?.job_type ?? null
+  if (JOB_TYPE_ORDER.includes(node.type)) return node.type
+  return null
+}
+
+function laneOf(node) {
+  return TYPE_LANE[node.type] ?? 4
+}
+
+// Group job nodes by their job_type (only keys present in JOB_TYPE_ORDER).
+function _groupJobsByType(nodes) {
+  const groups = Object.fromEntries(JOB_TYPE_ORDER.map(t => [t, []]))
+  for (const n of nodes) {
+    const job = jobTypeOf(n)
+    if (job && groups[job]) groups[job].push(n)
+  }
+  return groups
+}
+
+// Walk the canonical job order and push each group's lanes past the previous
+// group's max. Mutates `effectiveLane`; re-propagates when anything moved so
+// that DWHs / use_cases downstream of shifted jobs follow.
+function enforceJobOrdering(nodes, effectiveLane, repropagate) {
+  const groups = _groupJobsByType(nodes)
+  let prevMaxLane = -Infinity
+  let shifted    = false
+
+  for (const jobType of JOB_TYPE_ORDER) {
+    const group = groups[jobType]
+    if (!group.length) continue
+
+    for (const n of group) {
+      if (effectiveLane[n.id] <= prevMaxLane) {
+        effectiveLane[n.id] = prevMaxLane + 1
+        shifted = true
+      }
+    }
+    prevMaxLane = Math.max(...group.map(n => effectiveLane[n.id]))
+  }
+
+  if (shifted) repropagate()
+}
 
 // ── Build the ReactFlow node/edge graph ───────────────────────────────────────
 export function buildGraph(nodes, edges) {
@@ -62,19 +120,30 @@ export function buildGraph(nodes, edges) {
   const ANCHORED_TYPES = new Set(['feature', 'component'])
   const nodeById = Object.fromEntries(nodes.map(n => [n.id, n]))
   const effectiveLane = {}
-  nodes.forEach(n => { effectiveLane[n.id] = TYPE_LANE[n.type] ?? 2 })
-  let laneChanged = true
-  while (laneChanged) {
-    laneChanged = false
-    for (const e of validEdges) {
-      if (ANCHORED_TYPES.has(nodeById[e.target]?.type)) continue
-      const needed = effectiveLane[e.source] + 1
-      if (needed > effectiveLane[e.target]) {
-        effectiveLane[e.target] = needed
-        laneChanged = true
+  nodes.forEach(n => { effectiveLane[n.id] = laneOf(n) })
+
+  function propagateLanes() {
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const e of validEdges) {
+        if (ANCHORED_TYPES.has(nodeById[e.target]?.type)) continue
+        const needed = effectiveLane[e.source] + 1
+        if (needed > effectiveLane[e.target]) {
+          effectiveLane[e.target] = needed
+          changed = true
+        }
       }
     }
   }
+
+  propagateLanes()
+
+  // Post-pass — enforce the canonical job ordering (ingest → compute → virtual → extract)
+  // by pushing each group past the previous group's max lane. Topological
+  // depth still drives the spacing within a group; this only guarantees the
+  // between-group order regardless of chain shape.
+  enforceJobOrdering(nodes, effectiveLane, propagateLanes)
 
   // Dagre for Y only — X is overridden by effective lane
   const g = new dagre.graphlib.Graph()

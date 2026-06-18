@@ -419,7 +419,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E2E8F0" />
-        <Controls showInteractive={false} className="!shadow-md !rounded-lg !border !border-slate-200" />
+        <Controls showInteractive={false} className="!shadow-md !rounded-lg !border !border-app-border" />
         {drawerFullyClosed && (
           <Panel position="bottom-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8, marginRight: 8 }}>
             <MiniMap
@@ -428,7 +428,7 @@ function InnerGraph({ nodes, edges, onNodeClick, onDropdownItemClick, onPaneClic
                 return getNodeColor(n.data?.type)
               }}
               nodeStrokeWidth={0}
-              className="!shadow-md !rounded-lg !border !border-slate-200"
+              className="!shadow-md !rounded-lg !border !border-app-border"
               style={{ position: 'relative', margin: 0 }}
               pannable zoomable
             />

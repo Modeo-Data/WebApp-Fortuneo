@@ -115,7 +115,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
         <div className="px-3 pt-2 pb-1">
           <button
             onClick={() => nav.onBackRef.current()}
-            className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+            className="flex items-center gap-1.5 text-[11px] text-app-muted hover:text-app-text transition-colors"
           >
             <ChevronLeft size={13} /> Retour aux sources
           </button>
@@ -127,12 +127,12 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
           placeholder="Filtrer en aval…"
         />
 
-        <div className="flex-1 overflow-y-auto border-t border-slate-100 pt-2">
-          <p className="text-[9px] font-bold uppercase tracking-widest px-4 pb-2 text-slate-400">
-            En aval de <span className="text-slate-600">{activeSource.label}</span>
+        <div className="flex-1 overflow-y-auto border-t border-app-border pt-2">
+          <p className="text-[9px] font-bold uppercase tracking-widest px-4 pb-2 text-app-muted">
+            En aval de <span className="text-app-text">{activeSource.label}</span>
           </p>
           {filteredDownstream.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-3">Aucun nœud en aval trouvé</p>
+            <p className="text-xs text-app-muted text-center py-3">Aucun nœud en aval trouvé</p>
           ) : (
             ['transformation', 'use_case'].map(type => {
               const group = downByType[type]
@@ -152,7 +152,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
           )}
         </div>
 
-        <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
+        <div className="px-3 py-2 border-t border-app-border text-[10px] text-app-muted">
           {filteredDownstream.length} / {downstreamNodes.length} en aval
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
           {!isSearching && (
             <button
               onClick={() => nav.onBackRef.current()}
-              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+              className="flex items-center gap-1.5 text-[11px] text-app-muted hover:text-app-text transition-colors shrink-0"
             >
               <ChevronLeft size={13} /> {activeLetter}
             </button>
@@ -182,26 +182,26 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
 
         <div className="flex-1 overflow-y-auto">
           {visibleSources.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6 px-3">Aucune source trouvée</p>
+            <p className="text-xs text-app-muted text-center py-6 px-3">Aucune source trouvée</p>
           ) : (
             visibleSources.map(node => {
               const cfg = TYPE_CFG.source
               return (
                 <button key={node.id}
                   onClick={() => navigateTo({ activeLetter, activeSource: node })}
-                  className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-app-bg transition-colors"
                 >
                   <div className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center" style={{ background: cfg.bg }}>
                     <Database size={11} style={{ color: cfg.color }} />
                   </div>
-                  <p className="text-xs font-medium text-slate-700 truncate flex-1">{node.label}</p>
+                  <p className="text-xs font-medium text-app-text truncate flex-1">{node.label}</p>
                 </button>
               )
             })
           )}
         </div>
 
-        <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
+        <div className="px-3 py-2 border-t border-app-border text-[10px] text-app-muted">
           {isSearching
             ? `${visibleSources.length} résultat${visibleSources.length !== 1 ? 's' : ''}`
             : `${visibleSources.length} / ${sourceNodes.length} sources`}
@@ -239,7 +239,7 @@ export default function SourcesPanel({ nodes, edges, selectedNodeId, onSelect })
         </div>
       </div>
 
-      <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
+      <div className="px-3 py-2 border-t border-app-border text-[10px] text-app-muted">
         {sourceNodes.length} sources · {Object.keys(letterMap).length} lettres
       </div>
     </div>

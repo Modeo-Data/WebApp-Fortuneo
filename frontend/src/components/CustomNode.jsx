@@ -1,7 +1,7 @@
 import { Handle, Position } from '@xyflow/react'
 import {
   Database, GitMerge, LayoutDashboard, GitBranch,
-  Cpu, Layers, ArrowUpFromLine, Box, HardDrive,
+  Cpu, Layers, ArrowUpFromLine, Box, HardDrive, Workflow,
 } from 'lucide-react'
 import { getNodeColor, getNodeLabel } from '../lib/nodeTypes.js'
 
@@ -14,6 +14,7 @@ const TYPE_ICONS = {
   compute:       Cpu,
   virtual:       GitMerge,
   extract:       ArrowUpFromLine,
+  odi_mapping:   Workflow,
   transformation:GitMerge,
   use_case:      LayoutDashboard,
 }

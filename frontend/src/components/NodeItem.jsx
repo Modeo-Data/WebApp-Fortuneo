@@ -20,8 +20,8 @@ export default function NodeItem({ node, isSelected, onClick }) {
         <Icon size={12} style={{ color: cfg.color }} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-slate-700 truncate">{node.label}</p>
-        {node.sheet && <p className="text-[10px] text-slate-400 font-mono truncate">{node.sheet}</p>}
+        <p className="text-xs font-semibold text-app-text truncate">{node.label}</p>
+        {node.sheet && <p className="text-[10px] text-app-muted font-mono truncate">{node.sheet}</p>}
       </div>
       {isSelected && <div className="shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: cfg.color }} />}
     </button>

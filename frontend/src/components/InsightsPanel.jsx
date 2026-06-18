@@ -44,8 +44,8 @@ function FamilyCard({ family, fluxesById, onHighlight }) {
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-slate-700 truncate">{family.hub_label}</p>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+          <p className="text-[11px] font-semibold text-app-text truncate">{family.hub_label}</p>
+          <p className="text-[10px] text-app-muted uppercase tracking-wide">
             {hubTypeLabel(family.hub_type)}{family.is_terminal ? ' · terminal' : ''}
           </p>
 
@@ -66,7 +66,7 @@ function FamilyCard({ family, fluxesById, onHighlight }) {
           {open && (
             <ul className="mt-2 flex flex-col gap-0.5">
               {family.flux_labels.map((label, i) => (
-                <li key={family.flux_ids[i]} className="text-[10px] text-slate-500 truncate">
+                <li key={family.flux_ids[i]} className="text-[10px] text-app-subtext truncate">
                   → {label}
                 </li>
               ))}
@@ -84,7 +84,7 @@ function FamilyCard({ family, fluxesById, onHighlight }) {
 
       <button
         onClick={() => onHighlight(allNodeIds)}
-        className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold border-t transition-colors hover:bg-slate-50"
+        className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold border-t transition-colors hover:bg-app-bg"
         style={{ color: ACCENT, borderColor: 'var(--hp-border)' }}
       >
         <Eye size={10} /> Voir sur le graphe
@@ -109,7 +109,7 @@ function GroupSection({ title, Icon, color, count, defaultOpen = true, children 
         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>
           {title}
         </span>
-        <span className="text-[9px] text-slate-400 font-medium ml-auto">{count}</span>
+        <span className="text-[9px] text-app-muted font-medium ml-auto">{count}</span>
       </button>
       {open && <div className="flex flex-col gap-1.5 px-1 pb-2">{children}</div>}
     </div>
@@ -126,9 +126,9 @@ function FamiliesView({ families, fluxes, onHighlight }) {
 
   if (families.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center text-xs text-slate-400 px-6 py-8 gap-2">
+      <div className="flex-1 flex flex-col items-center justify-center text-center text-xs text-app-muted px-6 py-8 gap-2">
         <Network size={32} className="opacity-30" />
-        <p className="font-medium text-slate-500">Aucune famille de flux à regrouper</p>
+        <p className="font-medium text-app-subtext">Aucune famille de flux à regrouper</p>
         <p className="text-[10px] leading-relaxed">
           Aucun DWH ou dashboard n'est partagé par plusieurs fluxes dans ce catalogue.
         </p>
@@ -161,8 +161,8 @@ function AnomalyCard({ color, title, badge, subtitle, nodeIds, onHighlight, chil
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-slate-700 truncate">{title}</p>
-          {subtitle && <p className="text-[10px] text-slate-400">{subtitle}</p>}
+          <p className="text-[11px] font-semibold text-app-text truncate">{title}</p>
+          {subtitle && <p className="text-[10px] text-app-muted">{subtitle}</p>}
         </div>
         {badge && (
           <span
@@ -220,7 +220,7 @@ function DuplicateCard({ item, onHighlight }) {
       nodeIds={[a.id, b.id]}
       onHighlight={onHighlight}
     >
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] text-app-subtext">
         {item.shared_inputs.length} entrées communes
         {item.diff_inputs.length > 0 && ` · diff : ${item.diff_inputs.join(', ')}`}
       </p>
@@ -231,7 +231,7 @@ function DuplicateCard({ item, onHighlight }) {
 function AnomaliesView({ hotSpots, duplicates, onHighlight }) {
   if (hotSpots.length === 0 && duplicates.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-xs text-slate-400 px-4 py-8">
+      <div className="flex-1 flex items-center justify-center text-xs text-app-muted px-4 py-8">
         Aucune anomalie détectée.
       </div>
     )
@@ -314,8 +314,8 @@ const ANOMALY_SORTS = [
   { key: 'features', label: 'Features' },
 ]
 
-function fetchInsights({ onData, onError, onDone }) {
-  axios.get('/api/catalog/insights/')
+function fetchInsights({ force, onData, onError, onDone }) {
+  axios.get('/api/catalog/insights/', { params: force ? { force: 1 } : {} })
     .then(({ data }) => onData(data))
     .catch(() => onError('Impossible de charger les suggestions'))
     .finally(onDone)
@@ -361,6 +361,7 @@ export default function InsightsPanel({ onHighlight }) {
     if (initial) setLoading(true)
     else         setRefreshing(true)
     fetchInsights({
+      force:   !initial,
       onData:  d => { setData(d); setError(null) },
       onError: setError,
       onDone:  () => { setLoading(false); setRefreshing(false) },
@@ -434,7 +435,7 @@ export default function InsightsPanel({ onHighlight }) {
         )}
       </div>
 
-      <div className="px-3 py-2 border-t text-[10px] text-slate-400" style={{ borderColor: 'var(--hp-border)' }}>
+      <div className="px-3 py-2 border-t text-[10px] text-app-muted" style={{ borderColor: 'var(--hp-border)' }}>
         {tab === 'families'
           ? `${filteredFamilies.length}/${familyCount} famille${familyCount > 1 ? 's' : ''} · ${data.fluxes.length} flux`
           : `${anomalyCount} anomalies`}

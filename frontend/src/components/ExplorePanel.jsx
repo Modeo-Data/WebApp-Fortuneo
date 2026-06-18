@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, X, Database, Layers, Box, GitMerge, LayoutDashboard } from 'lucide-react'
+import { Search, X, Database, Layers, Box, GitMerge, LayoutDashboard, Workflow } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce.js'
 import NodeItem from './NodeItem.jsx'
 import TypeCheckbox from './TypeCheckbox.jsx'
@@ -13,6 +13,7 @@ const DISPLAY_GROUPS = [
   { key: 'feature',  label: 'Feature',   color: '#88c648', Icon: Layers,         types: ['feature'] },
   { key: 'component',label: 'Component', color: '#8b5cf6', Icon: Box,            types: ['component'] },
   { key: 'transfo',  label: 'Transfo',   color: '#d97706', Icon: GitMerge,       types: ['ingest', 'compute', 'virtual', 'extract', 'collection', 'transformation'] },
+  { key: 'odi',      label: 'ODI',       color: '#db2777', Icon: Workflow,       types: ['odi_mapping'] },
   { key: 'use_case', label: 'Dashboard', color: '#7c3aed', Icon: LayoutDashboard,types: ['use_case'] },
 ]
 
@@ -76,7 +77,7 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
       </div>
 
       <div className="ep-tc-row">
-        {DISPLAY_GROUPS.map(g => (
+        {DISPLAY_GROUPS.filter(g => groupCounts[g.key] > 0).map(g => (
           <TypeCheckbox
             key={g.key}
             type={g.key}
@@ -90,7 +91,7 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
         {filtered.length === 0
-          ? <p className="text-xs text-slate-400 text-center py-6">Aucun nœud trouvé</p>
+          ? <p className="text-xs text-app-muted text-center py-6">Aucun nœud trouvé</p>
           : DISPLAY_GROUPS.filter(g => activeGroups.has(g.key)).map(g => {
               const group = filtered.filter(n => TYPE_TO_GROUP[n.type] === g.key)
               if (!group.length) return null
@@ -109,7 +110,7 @@ export default function ExplorePanel({ nodes, selectedNodeId, onSelect }) {
         }
       </div>
 
-      <div className="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400">
+      <div className="px-3 py-2 border-t border-app-border text-[10px] text-app-muted">
         {filtered.length} / {nodes.filter(n => !HIDDEN.has(n.type)).length} nœuds
       </div>
     </>

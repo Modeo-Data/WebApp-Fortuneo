@@ -5,7 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Node type palette — mirrors DataHub's color scheme
+        app: {
+          bg:      'var(--hp-bg)',
+          card:    'var(--hp-card-bg)',
+          header:  'var(--hp-header-bg)',
+          border:  'var(--hp-border)',
+          text:    'var(--hp-text)',
+          subtext: 'var(--hp-subtext)',
+          muted:   'var(--hp-muted)',
+          dim:     'var(--hp-dim)',
+          search:  'var(--hp-search-bg)',
+          hover:   'var(--surface-hover)',
+          accent:  '#88c648',
+        },
         source: {
           bg: '#DBEAFE',
           border: '#3B82F6',

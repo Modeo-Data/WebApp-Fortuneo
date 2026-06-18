@@ -45,16 +45,16 @@ export default function DiffPicker({ currentSessionId, onSelect, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-slate-200">
+      <div className="bg-app-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-app-border">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-app-border">
           <div className="flex items-center gap-2">
-            <Diff size={15} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Comparer avec une version précédente</h2>
+            <Diff size={15} className="text-app-subtext" />
+            <h2 className="text-sm font-semibold text-app-text">Comparer avec une version précédente</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-1 rounded-lg hover:bg-app-search text-app-muted hover:text-app-text transition-colors"
           >
             <X size={15} />
           </button>
@@ -68,15 +68,15 @@ export default function DiffPicker({ currentSessionId, onSelect, onClose }) {
 
           {sessions.length === 0 ? (
             <div className="text-center py-8">
-              <Clock size={28} className="text-slate-200 mx-auto mb-2" />
-              <p className="text-sm text-slate-400">Aucune session récente disponible.</p>
-              <p className="text-xs text-slate-300 mt-1">
+              <Clock size={28} className="text-app-dim mx-auto mb-2" />
+              <p className="text-sm text-app-muted">Aucune session récente disponible.</p>
+              <p className="text-xs text-app-dim mt-1">
                 Chargez d'abord un autre graphe pour pouvoir comparer.
               </p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] text-slate-400 mb-1 uppercase tracking-wider font-semibold px-1">
+              <p className="text-[10px] text-app-muted mb-1 uppercase tracking-wider font-semibold px-1">
                 Sessions récentes
               </p>
               {sessions.map(s => (
@@ -84,16 +84,16 @@ export default function DiffPicker({ currentSessionId, onSelect, onClose }) {
                   key={s.sessionId}
                   disabled={!!loading}
                   onClick={() => pick(s.sessionId)}
-                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all disabled:opacity-50"
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border border-app-border hover:border-app-border hover:bg-app-bg transition-all disabled:opacity-50"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                    <Diff size={13} className="text-slate-400" />
+                  <div className="w-8 h-8 rounded-lg bg-app-search flex items-center justify-center shrink-0">
+                    <Diff size={13} className="text-app-muted" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-700 truncate">
+                    <p className="text-xs font-semibold text-app-text truncate">
                       {s.name ?? `Session ${s.sessionId.slice(0, 8)}`}
                     </p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-app-muted">
                       {s.nodeCount} nœuds ·{' '}
                       {new Date(s.savedAt).toLocaleDateString('fr-FR', {
                         day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -101,7 +101,7 @@ export default function DiffPicker({ currentSessionId, onSelect, onClose }) {
                     </p>
                   </div>
                   {loading === s.sessionId && (
-                    <Loader2 size={14} className="text-slate-400 animate-spin shrink-0" />
+                    <Loader2 size={14} className="text-app-muted animate-spin shrink-0" />
                   )}
                 </button>
               ))}

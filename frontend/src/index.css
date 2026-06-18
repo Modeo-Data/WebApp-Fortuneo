@@ -19,6 +19,7 @@
   --rtab-corner:          #ffffff;
   --rtab-active-text:     #5a9e2f;
   --rtab-strip:           #d4d0c8;
+  --ns-panel-bg:          #ffffff;
   --rtab-inactive-text:   #64748b;
   --rtab-inactive-hover:  #334155;
   --letter-inactive-bg:   #F8FAFC;
@@ -94,10 +95,11 @@
   --surface-hover:        #2d3f52;
   --surface-inactive:     #1e293b;
   --tab-active-bg:        #334155;
-  --rtab-active-bg:       #1e293b;
-  --rtab-corner:          #1e293b;
+  --rtab-active-bg:       #0f172a;
+  --rtab-corner:          #0f172a;
   --rtab-active-text:     #88c648;
   --rtab-strip:           #162032;
+  --ns-panel-bg:          #0f172a;
   --rtab-inactive-text:   rgba(255,255,255,0.5);
   --rtab-inactive-hover:  rgba(255,255,255,0.8);
   --tab-active-text:      #f1f5f9;
@@ -172,15 +174,15 @@
   --surface-hover:        #273449;
   --surface-inactive:     #0f172a;
   --tab-active-bg:        #1e293b;
-  --rtab-active-bg:       #1e293b;
-  --rtab-corner:          #1e293b;
+  --rtab-active-bg:       #0f172a;
+  --rtab-corner:          #0f172a;
   --rtab-strip:           #162032;
   --search-bg:            #273449;
   --node-bg:              #1e293b;
   --node-border:          rgba(255,255,255,0.10);
   --node-sheet-bg:        #0f172a;
   --node-divider:         rgba(255,255,255,0.07);
-  --letter-inactive-bg:   #1a2640;
+  --letter-inactive-bg:   #1e293b;
   --letter-active-bg:     #0f172a;
 }
 
@@ -194,11 +196,8 @@ body {
   flex-direction: column;
 }
 
-/* ── NodeSelector dark mode ──────────────────────────────────────────────────── */
-.dark .ns-panel {
-  background: #0f172a !important;
-  border-color: rgba(255,255,255,0.10) !important;
-}
+/* NodeSelector relies on bg-app-card + border-app-border (semantic tokens) so
+   the panel surface matches the active tab background in both themes. */
 
 /* ── Node highlight: stroke traces around the perimeter from the left edge ─────── */
 @keyframes node-nano-draw {
@@ -251,6 +250,36 @@ body {
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible { outline: none; }
+
+/* SourceToggle — card-style segmented control with lift + pulsing dot + growing underline */
+@keyframes st-dot-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1;   }
+  50%      { transform: scale(1.4); opacity: 0.6; }
+}
+.st-pulse     { animation: st-dot-pulse 1.6s ease-in-out infinite; }
+.st-card      { transition: transform 240ms ease-out, border-color 240ms ease-out, box-shadow 240ms ease-out, background 240ms ease-out; }
+label:hover .st-card.is-inactive { border-color: var(--hp-border); transform: translateY(-1px); }
+.st-underline {
+  left: 12px;
+  right: 12px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  transform-origin: left center;
+  transition: transform 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* GlobalSearch floater — browser-style find-in-page slide */
+@keyframes gs-drop {
+  from { opacity: 0; transform: translate(-50%, -16px); }
+  to   { opacity: 1; transform: translate(-50%, 0);     }
+}
+@keyframes gs-lift {
+  from { opacity: 1; transform: translate(-50%, 0);     }
+  to   { opacity: 0; transform: translate(-50%, -16px); }
+}
+.gs-floater-in  { animation: gs-drop 220ms cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+.gs-floater-out { animation: gs-lift 180ms cubic-bezier(0.4, 0, 1, 1)    forwards; }
 
 /* Skeleton loader — soft pulse on neutral surface */
 @keyframes nd-skeleton-pulse {
@@ -692,23 +721,14 @@ body.page-graph #root {
   background-color: var(--rtab-active-bg);
   font-weight: 600;
   cursor: default;
-  color: var(--rtab-active-text, #5a9e2f);
-  animation: tab-name-on 0.1s forwards;
-}
-
-@keyframes tab-name-on {
-  from { background-color: var(--rtab-strip); font-weight: 400; color: var(--rtab-inactive-text); }
-  to   { background-color: var(--rtab-active-bg); font-weight: 600; color: var(--rtab-active-text, #5a9e2f); }
+  color: var(--rtab-active-text);
+  transition: background-color 100ms ease-out, color 100ms ease-out;
 }
 
 .mode-tabs .tab input:checked + .tab-name .pre-name,
 .mode-tabs .tab input:checked + .tab-name .pos-name {
-  animation: tab-corner-on 0.1s forwards;
-}
-
-@keyframes tab-corner-on {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  opacity: 1;
+  transition: opacity 100ms ease-out;
 }
 
 .mode-tabs .tab .tab-name span:last-child {
@@ -716,15 +736,11 @@ body.page-graph #root {
   padding: 0.4rem 0.9rem;
   border-top-left-radius: 0.5rem;
   border-top-right-radius: 0.5rem;
+  transition: background-color 100ms ease-out;
 }
 
 .mode-tabs .tab input:checked + .tab-name span:last-child {
-  animation: tab-text-on 0.1s forwards;
-}
-
-@keyframes tab-text-on {
-  from { background-color: var(--rtab-strip); }
-  to   { background-color: var(--rtab-active-bg); }
+  background-color: var(--rtab-active-bg);
 }
 
 /* ── Colored Tailwind classes — dark mode ───────────────────────────────────── */
@@ -750,29 +766,6 @@ body.page-graph #root {
   background-color: #0f172a;
   color: #f1f5f9;
 }
-
-/* Backgrounds */
-.dark .bg-slate-50  { background-color: #0f172a !important; }
-.dark .bg-slate-100 { background-color: #1e293b !important; }
-.dark .bg-white     { background-color: #1e293b !important; }
-
-/* Hover backgrounds */
-.dark .hover\:bg-slate-50:hover  { background-color: #1e293b !important; }
-.dark .hover\:bg-slate-100:hover { background-color: #273449 !important; }
-
-/* Borders */
-.dark .border-slate-100 { border-color: rgba(255,255,255,0.07) !important; }
-.dark .border-slate-200 { border-color: rgba(255,255,255,0.10) !important; }
-
-/* Text */
-.dark .text-slate-900 { color: #f1f5f9 !important; }
-.dark .text-slate-800 { color: #e2e8f0 !important; }
-.dark .text-slate-700 { color: #cbd5e1 !important; }
-.dark .text-slate-600 { color: #94a3b8 !important; }
-.dark .text-slate-500 { color: #94a3b8 !important; }
-.dark .text-slate-400 { color: #64748b !important; }
-.dark .text-slate-300 { color: #475569 !important; }
-.dark .text-slate-200 { color: #334155 !important; }
 
 /* Shadow */
 .dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.6) !important; }

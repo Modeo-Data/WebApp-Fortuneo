@@ -12,7 +12,7 @@ function LayerSelect({ layer, value, onChange }) {
       <select
         value={value}
         onChange={e => onChange(layer, e.target.value)}
-        className="text-xs font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer hover:text-slate-900"
+        className="text-xs font-semibold text-app-text bg-transparent border-none outline-none cursor-pointer hover:text-app-text"
         style={{ appearance: 'none' }}
       >
         {LAYER_OPTIONS[layer].map(id => (
@@ -25,13 +25,13 @@ function LayerSelect({ layer, value, onChange }) {
 
 export default function PlatformPicker({ platforms, onChange }) {
   return (
-    <div className="flex items-stretch gap-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+    <div className="flex items-stretch gap-0 bg-app-search rounded-xl overflow-hidden border border-app-border">
       {Object.keys(LAYER_LABELS).map((layer, i) => (
         <div
           key={layer}
-          className={`flex flex-col justify-center px-3 py-1.5 gap-0.5 ${i > 0 ? 'border-l border-slate-200' : ''}`}
+          className={`flex flex-col justify-center px-3 py-1.5 gap-0.5 ${i > 0 ? 'border-l border-app-border' : ''}`}
         >
-          <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold leading-none">
+          <p className="text-[9px] uppercase tracking-widest text-app-muted font-bold leading-none">
             {LAYER_LABELS[layer]}
           </p>
           <LayerSelect layer={layer} value={platforms[layer]} onChange={onChange} />

@@ -20,25 +20,31 @@ export default function NodeSelector({ nodes, edges, selectedNodeId, onSelect, o
   ]
 
   return (
-    <div className="ns-panel flex flex-col h-full bg-white border-r border-slate-200" style={{ width: 260, minWidth: 260 }}>
+    <div className="ns-panel flex flex-col h-full border-r border-app-border" style={{ width: 260, minWidth: 260, background: 'var(--ns-panel-bg)' }}>
 
       {/* Animated mode tabs */}
       <div className="mode-tabs">
-        {tabs.map(tab => (
-          <label key={tab.id} className="tab">
-            <input
-              type="radio"
-              name="panel-mode"
-              checked={mode === tab.id}
-              onChange={() => setMode(tab.id)}
-            />
-            <div className="tab-name">
-              <span className="pre-name" />
-              <span className="pos-name" />
-              <span>{tab.label}</span>
-            </div>
-          </label>
-        ))}
+        {tabs.map(tab => {
+          const active = mode === tab.id
+          return (
+            <label key={tab.id} className="tab">
+              <input
+                type="radio"
+                name="panel-mode"
+                checked={active}
+                onChange={() => setMode(tab.id)}
+              />
+              <div
+                className="tab-name"
+                style={active ? { color: '#88c648' } : undefined}
+              >
+                <span className="pre-name" />
+                <span className="pos-name" />
+                <span>{tab.label}</span>
+              </div>
+            </label>
+          )
+        })}
       </div>
 
       {mode === 'explore' && (

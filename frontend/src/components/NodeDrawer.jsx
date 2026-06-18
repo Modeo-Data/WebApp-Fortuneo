@@ -153,8 +153,8 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
   return (
     <aside
       {...nav.panelProps}
-      className={`relative h-full shrink-0 bg-white flex flex-col
-        border-l border-slate-200 shadow-2xl overflow-hidden nd-shell
+      className={`relative h-full shrink-0 bg-app-card flex flex-col
+        border-l border-app-border shadow-2xl overflow-hidden nd-shell
         ${isOpen ? 'w-[340px] nd-open' : 'w-0'}`}
     >
       {/* Languette — peeks out over the canvas left edge */}
@@ -211,7 +211,7 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
                     </span>
                   )}
                   {node.sheet && (
-                    <span className="text-[10px] font-mono opacity-60 bg-white/15 px-1.5 py-0.5 rounded truncate max-w-[100px]">
+                    <span className="text-[10px] font-mono opacity-60 bg-app-card/15 px-1.5 py-0.5 rounded truncate max-w-[100px]">
                       {node.sheet}
                     </span>
                   )}
@@ -234,49 +234,49 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
           <div ref={contentRef} className="flex-1 overflow-y-auto">
             <div className="p-4 space-y-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-app-muted mb-2">
                   ↑ Sources ({upstream.length})
                 </p>
                 {upstream.length > 0 ? (
-                  <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-slate-200">
+                  <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-app-border">
                     {upstream.map(n => <NodeChip key={n.id} node={n} onClick={handleChipClick} />)}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic pl-1">Nœud racine</p>
+                  <p className="text-xs text-app-muted italic pl-1">Nœud racine</p>
                 )}
               </div>
               <div className="flex items-center justify-center py-1">
                 <div className="flex flex-col items-center gap-0.5">
-                  <div className="w-px h-3 bg-slate-300" />
-                  <ArrowRight size={14} className="text-slate-300 rotate-90" />
-                  <div className="w-px h-3 bg-slate-300" />
+                  <div className="w-px h-3 bg-app-dim" />
+                  <ArrowRight size={14} className="text-app-dim rotate-90" />
+                  <div className="w-px h-3 bg-app-dim" />
                 </div>
               </div>
               <div className="rounded-xl border-2 px-3 py-2.5 flex items-center gap-2"
                 style={{ borderColor: cfg.accent, background: cfg.accentBg }}>
                 <Icon size={15} style={{ color: cfg.accent, flexShrink: 0 }} />
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-700 truncate">{node.label}</p>
-                  <code className="text-[10px] text-slate-400 font-mono">{node.id}</code>
+                  <p className="text-sm font-bold text-app-text truncate">{node.label}</p>
+                  <code className="text-[10px] text-app-muted font-mono">{node.id}</code>
                 </div>
               </div>
               <div className="flex items-center justify-center py-1">
                 <div className="flex flex-col items-center gap-0.5">
-                  <div className="w-px h-3 bg-slate-300" />
-                  <ArrowRight size={14} className="text-slate-300 rotate-90" />
-                  <div className="w-px h-3 bg-slate-300" />
+                  <div className="w-px h-3 bg-app-dim" />
+                  <ArrowRight size={14} className="text-app-dim rotate-90" />
+                  <div className="w-px h-3 bg-app-dim" />
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-app-muted mb-2">
                   ↓ Alimente ({downstream.length})
                 </p>
                 {downstream.length > 0 ? (
-                  <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-slate-200">
+                  <div className="flex flex-col gap-1.5 pl-1 border-l-2 border-app-border">
                     {downstream.map(n => <NodeChip key={n.id} node={n} onClick={handleChipClick} />)}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic pl-1">Nœud terminal</p>
+                  <p className="text-xs text-app-muted italic pl-1">Nœud terminal</p>
                 )}
               </div>
             </div>
@@ -286,14 +286,14 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
                 {node.metadata.nom_sql && (
                   <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-search-bg)' }}>
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <FileCode2 size={11} className="text-slate-400 shrink-0" />
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Script SQL</span>
+                      <FileCode2 size={11} className="text-app-muted shrink-0" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-app-muted">Script SQL</span>
                     </div>
-                    <code className="text-[11px] font-mono text-slate-600 break-all">{node.metadata.nom_sql}</code>
+                    <code className="text-[11px] font-mono text-app-text break-all">{node.metadata.nom_sql}</code>
                     {node.metadata.fichier_xml && (
                       <div className="flex items-center gap-1.5 mt-2 pt-2 border-t" style={{ borderColor: 'var(--hp-border)' }}>
-                        <FileJson size={11} className="text-slate-400 shrink-0" />
-                        <code className="text-[11px] font-mono text-slate-500 break-all">{node.metadata.fichier_xml}</code>
+                        <FileJson size={11} className="text-app-muted shrink-0" />
+                        <code className="text-[11px] font-mono text-app-subtext break-all">{node.metadata.fichier_xml}</code>
                       </div>
                     )}
                   </div>
@@ -301,10 +301,10 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
                 {node.metadata.description && (
                   <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--hp-border)', background: 'var(--hp-search-bg)' }}>
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <AlignLeft size={11} className="text-slate-400 shrink-0" />
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Description</span>
+                      <AlignLeft size={11} className="text-app-muted shrink-0" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-app-muted">Description</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">{node.metadata.description}</p>
+                    <p className="text-[11px] text-app-text leading-relaxed">{node.metadata.description}</p>
                   </div>
                 )}
               </div>
@@ -335,15 +335,15 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
                     </p>
                   )}
                   {explainError && <p className="text-[11px] text-red-500">⚠️ {explainError}</p>}
-                  {explanation && <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap">{explanation}</p>}
+                  {explanation && <p className="text-[11px] text-app-text leading-relaxed whitespace-pre-wrap">{explanation}</p>}
                 </div>
               </div>
             )}
           </div>
 
           {/* ── Footer (node selected) with lightbulb button ─────────────────── */}
-          <div className="border-t border-slate-200 px-3 py-2 bg-slate-100 shrink-0 flex items-center justify-between">
-            <p className="text-[10px] text-slate-400 font-mono truncate flex-1 mr-2">{node.id}</p>
+          <div className="border-t border-app-border px-3 py-2 bg-app-search shrink-0 flex items-center justify-between">
+            <p className="text-[10px] text-app-muted font-mono truncate flex-1 mr-2">{node.id}</p>
             <button onClick={onOpenSuggestions} title="Suggestions"
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
               style={{ background: 'var(--suggest-bg)', border: '1px solid var(--suggest-border)' }}
@@ -357,7 +357,7 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
       ) : (
         <>
           {/* ── Placeholder (no node selected) — lightbulb on top ────────────── */}
-          <div className="px-5 py-4 shrink-0 border-b border-slate-200 flex items-center justify-between"
+          <div className="px-5 py-4 shrink-0 border-b border-app-border flex items-center justify-between"
             style={{ background: 'var(--hp-header-bg)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--hp-text-muted, #94a3b8)' }}>
               Détails du nœud
@@ -424,7 +424,7 @@ export default function NodeDrawer({ node, nodes, edges, edgesOverride, nodesOve
               </div>
             )}
           </div>
-          <div className="border-t border-slate-200 px-5 py-2 bg-slate-100 shrink-0 flex items-center justify-end">
+          <div className="border-t border-app-border px-5 py-2 bg-app-search shrink-0 flex items-center justify-end">
             <span className="text-[10px] font-semibold" style={{ color: '#88c648' }}>nexus-explorer</span>
           </div>
         </>

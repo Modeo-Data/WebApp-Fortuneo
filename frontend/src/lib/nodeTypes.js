@@ -15,10 +15,11 @@ export const NODE_TYPES = {
   compute:       { lane: 4, color: '#d97706', label: 'Compute',    size: 'normal' },
   virtual:       { lane: 5, color: '#06b6d4', label: 'Virtual',    size: 'normal' },
   extract:       { lane: 6, color: '#10b981', label: 'Extract',    size: 'normal' },
+  odi_mapping:   { lane: 7, color: '#db2777', label: 'ODI Mapping', size: 'normal' },
   // ── Legacy — kept for old sessions ────────────────────────────────────────
   source:        { lane: 0, color: '#2563eb', label: 'Source',        size: 'normal' },
   transformation:{ lane: 2, color: '#d97706', label: 'Transformation',size: 'normal' },
-  use_case:      { lane: 7, color: '#8b5cf6', label: 'Dashboard',     size: 'normal' },
+  use_case:      { lane: 8, color: '#8b5cf6', label: 'Dashboard',     size: 'normal' },
   // ── Internal ──────────────────────────────────────────────────────────────
   collapsed:     { lane: 99, color: '#94a3b8', label: 'Collapsed',    size: 'normal' },
 }

@@ -29,7 +29,7 @@ function DiffNodeRow({ node, status, isSelected, onClick }) {
         </div>
       )}
 
-      <p className="text-xs font-medium text-slate-700 truncate flex-1">{node.label}</p>
+      <p className="text-xs font-medium text-app-text truncate flex-1">{node.label}</p>
 
       {isSelected && (
         <div className="shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: cfg?.color }} />
@@ -50,7 +50,7 @@ export default function DiffPanel({ diffResult, selectedNodeId, onSelect, onOpen
   if (sections.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-center px-4">
-        <p className="text-xs text-slate-400">Aucune différence détectée entre les deux versions.</p>
+        <p className="text-xs text-app-muted">Aucune différence détectée entre les deux versions.</p>
       </div>
     )
   }
@@ -82,7 +82,7 @@ export default function DiffPanel({ diffResult, selectedNodeId, onSelect, onOpen
         )
       })}
 
-      <div className="px-4 py-3 border-t border-slate-100 mt-2 text-[10px] text-slate-400">
+      <div className="px-4 py-3 border-t border-app-border mt-2 text-[10px] text-app-muted">
         {added.length + changed.length + removed.length} différence{added.length + changed.length + removed.length !== 1 ? 's' : ''} au total
       </div>
     </div>
