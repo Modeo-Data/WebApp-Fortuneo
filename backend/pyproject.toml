@@ -8,9 +8,11 @@ dependencies = [
     "django-cors-headers>=4.3",
     "openpyxl>=3.1",
     "anthropic>=0.28",
-    "gunicorn>=22.0",
     "django-redis>=5.4",
     "redis>=5.0",
+    "gunicorn>=22.0",
+    "dj-database-url>=2.1",
+    "psycopg[binary]>=3.1",
 ]
 
 [tool.uv]

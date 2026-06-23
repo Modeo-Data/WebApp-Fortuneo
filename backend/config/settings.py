@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-prod')
@@ -8,7 +10,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', 'mock')
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -28,10 +30,11 @@ ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.environ.get('DB_PATH', str(BASE_DIR / 'db.sqlite3')),
-    }
+    'default': dj_database_url.config(
+        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # Cache Redis — fallback sur cache mémoire locale si Redis indisponible
