@@ -1,7 +1,31 @@
-frontend/node_modules
-frontend/dist
-backend/__pycache__
-backend/*.pyc
-backend/db.sqlite3
-.git
+# Local Python virtual envs (rebuilt inside the image by uv sync)
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+
+# Local DB
+**/db.sqlite3
+**/db.sqlite3-journal
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Git & editor
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+
+# Env files (never bake secrets into the image)
 .env
+.env.*
+!.env.example
+
+# Misc
+*.log
+*.bak
+*.tmp
